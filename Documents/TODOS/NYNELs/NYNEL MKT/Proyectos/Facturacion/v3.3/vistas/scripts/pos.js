@@ -2651,6 +2651,7 @@ function buscarClientePorDocumento() {
         $("#idcliente").val(data.idpersona);
         $("#razon_social").val(data.nombres);
         $("#domicilio_fiscal").val(data.domicilio_fiscal);
+        $("#tipo_documento_cliente").val(data.tipo_documento);
         $("#suggestions").fadeOut();
         $("#suggestions2").fadeOut();
         $("#suggestions3").fadeOut();
@@ -2689,6 +2690,7 @@ function buscarClientePorDocumento() {
               $("#idcliente").val(data.idpersona);
               $("#razon_social").val(data.razon_social);
               $("#domicilio_fiscal").val(data.domicilio_fiscal);
+              $("#tipo_documento_cliente").val(data.tipo_documento);
             } else {
               $("#idcliente").val("");
               $("#razon_social").val("No registrado");
@@ -2919,6 +2921,7 @@ function agregarClientexRuc(e) {
           $("#razon_social2").val(data.razon_social);
           $("#domicilio_fiscal2").val(data.domicilio_fiscal);
           $("#correocli").val(data.email);
+          $("#tipo_documento_cliente").val(data.tipo_documento);
 
           document.getElementById("correocli").focus();
           $("#suggestions").fadeOut();
@@ -2952,6 +2955,7 @@ function agregarClientexRuc(e) {
           $("#idpersona").val(data.idpersona);
           $("#razon_social2").val(data.razon_social);
           $("#domicilio_fiscal2").val(data.domicilio_fiscal);
+          $("#tipo_documento_cliente").val(data.tipo_documento);
 
           if (data.email == "") {
             $("#correocli").css("background-color", "#FBC6AA");
