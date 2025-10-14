@@ -223,33 +223,57 @@ if (!isset($_SESSION["nombre"])) {
             echo "<table border='0'  width='220px' style='font-size: 12px' align='center' >
     <tr><td>-----------------------------------------------------</td></tr>";
             echo "<tr><td></br><strong>Son: </strong>" . $con_letra . "</td></tr></table>";
+
+            // Calcular Op. Gravada y Op. Exonerado según tipo de tributo
+            $nombretigv = "0.00";
+            $nombretexo = "0.00";
+            $nombreinaf = "0.00";
+
+            if (isset($reg->nombretrib)) {
+                if ($reg->nombretrib == "IGV") {
+                    $nombretigv = $reg->subtotal ?? "0.00";
+                } else if ($reg->nombretrib == "EXO") {
+                    $nombretexo = $reg->subtotal ?? "0.00";
+                } else if ($reg->nombretrib == "INA") {
+                    $nombreinaf = $reg->subtotal ?? "0.00";
+                }
+            } else {
+                // Si no existe nombretrib, asumimos IGV
+                $nombretigv = $reg->subtotal ?? ($reg->total - $reg->igv);
+            }
             ?>
-
-
             <table border='0' width='220px' style='font-size: 12px' align="center">
                 <tr>
                     <td colspan='5'><strong>Total descuento: </strong></td>
-                    <td>0.00</td>
+                    <td><?php echo number_format($reg->tdescuento ?? 0, 2) ?></td>
                 </tr>
                 <tr>
                     <td colspan='5'><strong>OP. gravada: </strong></td>
-                    <td>
-                        <?php echo $reg->subtotal ?>
-                    </td>
+                    <td><?php echo number_format($nombretigv, 2) ?></td>
                 </tr>
                 <tr>
                     <td colspan='5'><strong>OP. exonerado: </strong></td>
-                    <td>0.00</td>
+                    <td><?php echo number_format($nombretexo, 2) ?></td>
                 </tr>
                 <tr>
                     <td colspan='5'><strong>OP. inafecto: </strong></td>
-                    <td>0.00</td>
+                    <td><?php echo number_format($nombreinaf, 2) ?></td>
+                </tr>
+                <tr>
+                    <td colspan='5'><strong>ICBPER: </strong></td>
+                    <td><?php echo number_format($reg->icbper ?? 0, 2) ?></td>
                 </tr>
                 <tr>
                     <td colspan='5'><strong>I.G.V. 18.00: </strong></td>
-                    <td>
-                        <?php echo $reg->igv ?>
-                    </td>
+                    <td><?php echo number_format($reg->igv, 2) ?></td>
+                </tr>
+                <tr>
+                    <td colspan='5'><strong>IMP. PAGADO: </strong></td>
+                    <td><?php echo number_format($reg->ipagado ?? 0, 2) ?></td>
+                </tr>
+                <tr>
+                    <td colspan='5'><strong>VUELTO: </strong></td>
+                    <td><?php echo number_format($reg->saldo ?? 0, 2) ?></td>
                 </tr>
             </table>
 
