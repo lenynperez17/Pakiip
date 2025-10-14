@@ -137,13 +137,32 @@ if (!isset($_SESSION["nombre"])) {
         $data[0] = "";
 
 
-        //Convertimos el total en letras
+        //Convertimos el total en letras y calculamos valores de operaciones
         $viewmon = "";
+        $nombretigv = "0.00";
+        $nombretexo = "0.00";
+
+        // Determinar moneda completa
         if ($regv->moneda == 'USD') {
-            $viewmon = " DOLARES";
+            $viewmon = " DÓLARES AMERICANOS";
+        } else if ($regv->moneda == 'EUR') {
+            $viewmon = " EUROS";
         } else {
             $viewmon = " SOLES";
         }
+
+        // Calcular Op. Gravada y Op. Exonerado según tipo de tributo
+        if ($regv->nombretrib == "IGV") {
+            $nombretigv = $regv->subtotal;
+            $nombretexo = "0.00";
+        } else if ($regv->nombretrib == "EXO") {
+            $nombretigv = "0.00";
+            $nombretexo = $regv->subtotal;
+        } else {
+            $nombretigv = "0.00";
+            $nombretexo = "0.00";
+        }
+
         require_once "Letras.php";
         $V = new EnLetras();
         $con_letra = strtoupper($V->ValorEnLetras($regv->totalLetras, "CON"));
@@ -154,7 +173,7 @@ if (!isset($_SESSION["nombre"])) {
         $pdf->numerocuentas($datose->banco1, $datose->cuenta1, $datose->banco2, $datose->cuenta2, $datose->banco3, $datose->cuenta3, $datose->banco4, $datose->cuenta4, $datose->cuentacci1, $datose->cuentacci2, $datose->cuentacci3, $datose->cuentacci4);
 
         //Mostramos el impuesto
-        $pdf->addTVAs($regv->Itotal, "S/ ", $regv->tdescuento, $regv->ipagado, $regv->saldo, $regv->icbper, $regv->igv);
+        $pdf->addTVAs($regv->Itotal, "S/ ", $regv->tdescuento, $regv->ipagado, $regv->saldo, $regv->icbper, $regv->igv, $nombretigv, $nombretexo);
         $pdf->addCadreEurosFrancs();
         // //==================== PARA IMAGEN DEL CODIGO HASH ================================================
 // //set it to writable location, a place for temp generated PNG files
