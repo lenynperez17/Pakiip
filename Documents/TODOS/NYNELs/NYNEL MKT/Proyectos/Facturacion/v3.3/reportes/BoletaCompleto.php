@@ -979,24 +979,28 @@ function addCadreEurosFrancs()
     $r1  = $this->w - 70;
     $r2  = $r1 + 60;
     $y1  = $this->h - 54;
-    $y2  = $y1+22;
+    $y2  = $y1+27; // Aumentado de 22 a 27 para agregar IGV
     $this->RoundedRect($r1, $y1, ($r2 - $r1), ($y2-$y1), 2.5, 'D');
     $this->Line( $r1+35,  $y1, $r1+35, $y2); // avant EUROS
 
     $this->SetFont( "Arial", "B", 8);
     $this->SetXY( $r1+32, $y1 );
     $this->Cell(30,4, "TOTALES", 0, 0, "C");
-    
+
     $this->SetFont( "Arial", "B", 8);
     $this->SetXY( $r1, $y1+5 );
     $this->Cell(35,4, "T. DESCU. ", 0, 0, "C");
 
     $this->SetFont( "Arial", "B", 8);
     $this->SetXY( $r1, $y1+10 );
-    $this->Cell(35,4, "ICBPER ", 0, 0, "C");
+    $this->Cell(35,4, "IGV ", 0, 0, "C");
 
     $this->SetFont( "Arial", "B", 8);
     $this->SetXY( $r1, $y1+15 );
+    $this->Cell(35,4, "ICBPER ", 0, 0, "C");
+
+    $this->SetFont( "Arial", "B", 8);
+    $this->SetXY( $r1, $y1+20 );
     $this->Cell(35,4, "TOTAL ", 0, 0, "C");
 
     // $this->SetFont( "Arial", "B", 8);
@@ -1043,10 +1047,10 @@ function addCadreEurosFrancs2()
 // invoice = array( "px_unit" => value,
 //                  "qte"     => qte,
 //                  "tva"     => code_tva );
-function addTVAs($total, $moneda, $tdescuento, $ipagado, $saldo, $icbper )
+function addTVAs($total, $moneda, $tdescuento, $ipagado, $saldo, $icbper, $igv )
 {
     $this->SetFont('Arial','',8);
- 
+
     $re  = $this->w - 30;
     $rf  = $this->w - 29;
     $y1  = $this->h - 54;
@@ -1057,10 +1061,14 @@ function addTVAs($total, $moneda, $tdescuento, $ipagado, $saldo, $icbper )
 
     $this->SetFont( "Arial", "B", 10);
     $this->SetXY( $re, $y1+10 );
-    $this->Cell( 14,4, number_format($icbper,2), '', '', 'R');
+    $this->Cell( 14,4, number_format($igv,2), '', '', 'R');
 
     $this->SetFont( "Arial", "B", 10);
     $this->SetXY( $re, $y1+15 );
+    $this->Cell( 14,4, number_format($icbper,2), '', '', 'R');
+
+    $this->SetFont( "Arial", "B", 10);
+    $this->SetXY( $re, $y1+20 );
     $this->Cell( 14,4, number_format($total,2), '', '', 'R');
 
     // $this->SetXY( $re, $y1+15 );
@@ -1068,7 +1076,7 @@ function addTVAs($total, $moneda, $tdescuento, $ipagado, $saldo, $icbper )
 
     // $this->SetXY( $re, $y1+20 );
     // $this->Cell( 14,4, number_format($saldo,2), '', '', 'R');
-     
+
 }
 
 function addTVAs2($total, $moneda, $tdescuento)
