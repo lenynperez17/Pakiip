@@ -1921,6 +1921,7 @@ class Boleta
 
 
     $con = 0; //COntador de variable
+    $i = 0; //Inicializar contador para iteraciones
 
     $icbper = "";
 
