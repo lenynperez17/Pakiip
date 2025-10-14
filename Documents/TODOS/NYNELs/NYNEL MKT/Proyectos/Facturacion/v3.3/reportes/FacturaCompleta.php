@@ -1348,7 +1348,7 @@ function addCadreEurosFrancs()
     $r1  = $this->w - 70;
     $r2  = $r1 + 60;
     $y1  = $this->h - 54;
-    $y2  = $y1+47; // MODERNO: 47 unidades para 8 líneas
+    $y2  = $y1+52; // MODERNO: 52 unidades para 9 líneas
 
     $this->RoundedRect($r1, $y1, ($r2 - $r1), ($y2-$y1), 2.5, 'D');
     $this->Line( $r1+35,  $y1, $r1+35, $y2);
@@ -1358,7 +1358,7 @@ function addCadreEurosFrancs()
     $this->Cell(30,4, "TOTALES", 0, 0, "C");
 
     $this->SetFont( "Arial", "B", 7);
-    // 8 labels modernos:
+    // 9 labels modernos:
     $this->SetXY( $r1, $y1+5 );
     $this->Cell(35,4, "DESCUENTO ", 0, 0, "C");
 
@@ -1382,6 +1382,9 @@ function addCadreEurosFrancs()
 
     $this->SetXY( $r1, $y1+40 );
     $this->Cell(35,4, "VUELTO ", 0, 0, "C");
+
+    $this->SetXY( $r1, $y1+45 );
+    $this->Cell(35,4, "IMPORTE A PAGAR ", 0, 0, "C");
 }
 
 function addComprobante($impuesto)
@@ -1539,7 +1542,7 @@ function addTVAs($total, $moneda, $tdescuento, $ipagado, $saldo, $icbper, $igv, 
     $y1  = $this->h - 54;
     $this->SetFont( "Arial", "B", 10);
 
-    // 8 valores modernos:
+    // 9 valores modernos:
     $this->SetXY( $re, $y1+6 );
     $this->Cell( 17,4, number_format($tdescuento,2), '', '', 'R');
 
@@ -1563,6 +1566,10 @@ function addTVAs($total, $moneda, $tdescuento, $ipagado, $saldo, $icbper, $igv, 
 
     $this->SetXY( $re, $y1+40.5 );
     $this->Cell( 17,4, number_format($saldo,2), '', '', 'R');
+
+    // Importe a Pagar (Total)
+    $this->SetXY( $re, $y1+45.5 );
+    $this->Cell( 17,4, number_format($total,2), '', '', 'R');
 }
 
 function addTVAsComprobante( $igv, $total, $moneda )
