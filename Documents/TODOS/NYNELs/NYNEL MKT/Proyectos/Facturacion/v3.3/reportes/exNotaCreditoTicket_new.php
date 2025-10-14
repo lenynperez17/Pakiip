@@ -48,67 +48,72 @@ if (!isset($_SESSION["nombre"])) {
             ?>
 
             <br>
-            <table border="0" align="center" width="230px" style="font-size: 14px;">
+            <table border="0" align="center" width="230px" style="font-size: 12px;">
                 <tr>
                     <td align="center">
-                        .::<strong><?php echo utf8_decode($datose->nombre_comercial) ?></strong>::.<br>
-                        <strong> R.U.C. <?php echo $datose->numero_ruc; ?></strong><br>
-                        <?php echo utf8_decode($datose->domicilio_fiscal) . ' - ' . $datose->telefono1 . "-" . $datose->telefono2; ?><br>
-                        <?php echo utf8_decode(strtolower($datose->correo)); ?><br>
-                        <?php echo utf8_decode(strtolower($datose->web)); ?>
+                        .::<strong><?php echo strtoupper(utf8_decode($datose->nombre_comercial)) ?></strong>::.<br>
+                        <strong>R.U.C. <?php echo $datose->numero_ruc; ?></strong><br>
+                        <?php echo strtoupper(utf8_decode($datose->domicilio_fiscal)) . ' - ' . $datose->telefono1 . "-" . $datose->telefono2; ?><br>
+                        <?php echo strtoupper(utf8_decode($datose->correo)); ?><br>
+                        <?php echo strtoupper(utf8_decode($datose->web)); ?>
                     </td>
                 </tr>
                 <tr>
-                    <td style="text-align: center;">--------------------------------</td>
+                    <td style="text-align: center;">====================================</td>
                 </tr>
                 <tr>
                     <td align="center">
-                        <strong> NOTA DE CRÉDITO ELECTRÓNICA </br>
-                            <?php echo $reg->numeroserienota; ?>
-                        </strong>
+                        <strong>NOTA DE CRÉDITO ELECTRÓNICA</strong><br>
+                        <strong style="font-size: 14px;"><?php echo $reg->numeroserienota; ?></strong>
                     </td>
                 </tr>
                 <tr>
-                    <td style="text-align: center;">--------------------------------</td>
+                    <td style="text-align: center;">====================================</td>
                 </tr>
                 <tr>
-                    <td align="left"><strong>Cliente:</strong> </br>
-                        <?php echo $reg->razon_social; ?>
+                    <td align="left"><strong>CLIENTE:</strong><br>
+                        <?php echo strtoupper(utf8_decode($reg->razon_social)); ?>
                     </td>
                 </tr>
                 <tr>
-                    <td align="left"><strong>RUC:</strong> </br>
+                    <td align="left"><strong>RUC/DNI:</strong>
                         <?php echo $reg->numero_documento; ?>
                     </td>
                 </tr>
                 <tr>
-                    <td align="left"><strong>Dirección:</strong> </br>
-                        <?php echo strtolower($reg->domicilio_fiscal); ?>
+                    <td align="left"><strong>DIRECCIÓN:</strong><br>
+                        <?php echo strtoupper(utf8_decode($reg->domicilio_fiscal)); ?>
                     </td>
                 </tr>
                 <tr>
-                    <td align="left"><strong>Comprobante original:</strong>
+                    <td style="text-align: center;">------------------------------------</td>
+                </tr>
+                <tr>
+                    <td align="left"><strong>COMPROBANTE ORIGINAL:</strong><br>
                         <?php echo $reg->serie_numero; ?>
                     </td>
                 </tr>
                 <tr>
-                    <td align="left"><strong>Fecha de emisión:</strong>
+                    <td align="left"><strong>FECHA DE EMISIÓN NC:</strong>
                         <?php echo date('d-m-Y', strtotime($reg->fecha)); ?>
                     </td>
                 </tr>
                 <tr>
-                    <td align="left"><strong>Fecha comprobante que se modifica:</strong>
+                    <td align="left"><strong>FECHA COMPROBANTE MOD.:</strong>
                         <?php echo date('d-m-Y', strtotime($reg->fechacomprobante)); ?>
                     </td>
                 </tr>
                 <tr>
-                    <td align="left"><strong>Moneda:</strong>
-                        <?php echo ($reg->tipo_moneda == 'USD') ? 'DÓLARES' : 'SOLES'; ?>
+                    <td align="left"><strong>MONEDA:</strong>
+                        <?php echo ($reg->tipo_moneda == 'USD') ? 'DÓLARES AMERICANOS' : 'SOLES'; ?>
                     </td>
                 </tr>
                 <tr>
-                    <td align="left"><strong>Motivo:</strong> </br>
-                        <?php echo utf8_decode($reg->motivonota); ?>
+                    <td style="text-align: center;">------------------------------------</td>
+                </tr>
+                <tr>
+                    <td align="left"><strong>MOTIVO:</strong><br>
+                        <?php echo strtoupper(utf8_decode($reg->motivonota)); ?>
                     </td>
                 </tr>
             </table>
@@ -117,13 +122,13 @@ if (!isset($_SESSION["nombre"])) {
             <!-- Detalle de productos -->
             <table border="0" width="230px" align="center" style="font-size: 14px;">
                 <tr>
-                    <td>Cant.</td>
-                    <td align="left">Producto</td>
-                    <td>P.u.</td>
-                    <td>Importe</td>
+                    <td><strong>CANT.</strong></td>
+                    <td align="left"><strong>PRODUCTO</strong></td>
+                    <td><strong>P.U.</strong></td>
+                    <td><strong>IMPORTE</strong></td>
                 </tr>
                 <tr>
-                    <td colspan="5">-----------------------------------------------------</td>
+                    <td colspan="5">====================================</td>
                 </tr>
 
                 <?php
@@ -173,7 +178,7 @@ if (!isset($_SESSION["nombre"])) {
                 while ($regd = $rsptad->fetch_object()) {
                     echo "<tr>";
                     echo "<td>" . $regd->cantidad . "</td>";
-                    echo "<td>" . strtolower($regd->articulo) . "</td>";
+                    echo "<td>" . strtoupper(utf8_decode($regd->articulo)) . "</td>";
                     echo "<td>" . number_format($regd->valor_unitario, 2) . "</td>";
                     echo "<td align='right'>" . number_format($regd->valor_venta, 2) . "</td>";
                     echo "</tr>";
@@ -186,66 +191,78 @@ if (!isset($_SESSION["nombre"])) {
             // Convertir total en letras
             require_once "Letras.php";
             $V = new EnLetras();
-            $con_letra = strtolower($V->ValorEnLetras($reg->importe_total, "NUEVOS SOLES"));
+            $con_letra = strtoupper($V->ValorEnLetras($reg->importe_total, "NUEVOS SOLES"));
 
             echo "<table border='0' width='230px' align='center' style='font-size: 14px;'>
-            <tr><td>-----------------------------------------------------</td></tr>";
-            echo "<tr><td></br><strong>Son: </strong>" . $con_letra . "</td></tr></table>";
+            <tr><td>====================================</td></tr>";
+            echo "<tr><td><br><strong>SON: </strong>" . $con_letra . "</td></tr></table>";
             ?>
 
             <table border='0' width='230px' align="center" style="font-size: 14px;">
                 <tr>
-                    <td colspan='5'><strong>Total descuento: </strong></td>
-                    <td>0.00</td>
+                    <td colspan='5'><strong>TOTAL DESCUENTO:</strong></td>
+                    <td align="right">0.00</td>
                 </tr>
                 <tr>
-                    <td colspan='5'><strong>OP. gravada: </strong></td>
-                    <td><?php echo number_format($reg->total_val_venta_og, 2); ?></td>
+                    <td colspan='5'><strong>OP. GRAVADA:</strong></td>
+                    <td align="right"><?php echo number_format($reg->total_val_venta_og, 2); ?></td>
                 </tr>
                 <tr>
-                    <td colspan='5'><strong>OP. exonerado: </strong></td>
-                    <td>0.00</td>
+                    <td colspan='5'><strong>OP. EXONERADO:</strong></td>
+                    <td align="right">0.00</td>
                 </tr>
                 <tr>
-                    <td colspan='5'><strong>OP. inafecto: </strong></td>
-                    <td>0.00</td>
+                    <td colspan='5'><strong>OP. INAFECTO:</strong></td>
+                    <td align="right">0.00</td>
                 </tr>
                 <tr>
-                    <td colspan='5'><strong>I.G.V. 18.00: </strong></td>
-                    <td><?php echo number_format($reg->sum_igv, 2); ?></td>
+                    <td colspan='5'><strong>I.G.V. 18.00%:</strong></td>
+                    <td align="right"><?php echo number_format($reg->sum_igv, 2); ?></td>
                 </tr>
             </table>
 
             <!-- Totales -->
             <table border='0' width='230px' align="center" style="font-size: 14px;">
                 <tr>
-                    <td align='right'><strong>TOTAL: <?php echo number_format($reg->importe_total, 2); ?></strong></td>
-                </tr><br>
-                <tr>
-                    <td><strong>Vendedor: <?php echo $reg->vendedorsitio; ?></strong></td>
+                    <td style="text-align: center;">====================================</td>
                 </tr>
                 <tr>
-                    <td colspan="5">================================</td>
+                    <td align='center'><strong style="font-size: 16px;">TOTAL: S/ <?php echo number_format($reg->importe_total, 2); ?></strong></td>
                 </tr>
+                <tr>
+                    <td style="text-align: center;">====================================</td>
+                </tr>
+            </table>
+            <br>
+
+            <table border='0' width='230px' align="center" style="font-size: 14px;">
+                <tr>
+                    <td align="center"><strong>VENDEDOR: <?php echo strtoupper($reg->vendedorsitio); ?></strong></td>
+                </tr>
+            </table>
+            <br>
+
+            <table border='0' width='230px' align="center" style="font-size: 14px;">
                 <tr>
                     <td colspan="5" align="center">
-                        <p1>GRACIAS POR SU PREFERENCIA</p1>
+                        <strong>¡GRACIAS POR SU PREFERENCIA!</strong>
                     </td>
                 </tr>
                 <tr>
                     <td colspan="5" align="center">
-                        <?php echo utf8_decode($datose->nombre_comercial); ?>
+                        <?php echo strtoupper(utf8_decode($datose->nombre_comercial)); ?>
                     </td>
                 </tr>
                 <tr>
-                    <td colspan="5" align="center">Lima - Perú</td>
+                    <td colspan="5" align="center">LIMA - PERÚ</td>
                 </tr>
             </table>
             <br>
 
             <div style="text-align: center;">
                 <img src="<?php echo $logoQr; ?>" width="150" height="150"><br>
-                <label>Cód. HASH: <?php echo $data[0]; ?></label>
+                <strong>CÓD. HASH:</strong><br>
+                <span style="font-size: 10px; word-break: break-all;"><?php echo $data[0]; ?></span>
             </div>
 
             <p>&nbsp;</p>

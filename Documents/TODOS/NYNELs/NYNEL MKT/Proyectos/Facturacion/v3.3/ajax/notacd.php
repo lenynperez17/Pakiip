@@ -241,11 +241,11 @@ switch ($_GET["op"]) {
             if ($reg->codigo_nota == '07') {
                 if ($reg->tipo_doc_mod == '01') {
                     $url = '../reportes/exNcredito.php?id=';
-                    $urlT = '../reportes/exNotaCreditoTicket.php?id=';
+                    $urlT = '../reportes/exNotaCreditoTicket_new.php?id=';
                     $urlTipo = '&tipodoc=';
                 } else {
                     $url = '../reportes/exNcredito.php?id=';
-                    $urlT = '../reportes/exNotaCreditoTicketBoleta.php?id=';
+                    $urlT = '../reportes/exNotaCreditoTicket_new.php?id=';
                     $urlTipo = '&tipodoc=';
 
                 }
@@ -428,11 +428,11 @@ switch ($_GET["op"]) {
             if ($reg->codigo_nota == '07') {
                 if ($reg->tipo_doc_mod == '01') {
                     $url = '../reportes/exNcredito.php?id=';
-                    $urlT = '../reportes/exNotaCreditoTicket.php?id=';
+                    $urlT = '../reportes/exNotaCreditoTicket_new.php?id=';
                     $urlTipo = '&tipodoc=';
                 } else {
                     $url = '../reportes/exNcredito.php?id=';
-                    $urlT = '../reportes/exNotaCreditoTicketBoleta.php?id=';
+                    $urlT = '../reportes/exNotaCreditoTicket_new.php?id=';
                     $urlTipo = '&tipodoc=';
 
                 }
