@@ -1,0 +1,46 @@
+# Archivos de configuración con credenciales
+config/Conexion.php
+
+# Archivos de sesión y temporales
+*.log
+*.txt
+nc_debug.txt
+nc_debug.log
+
+# Archivos de caché
+*.cache
+
+# Archivos subidos por usuarios
+files/articulos/*
+files/empresas/*
+files/usuarios/*
+files/clientes/*
+!files/articulos/.gitkeep
+!files/empresas/.gitkeep
+!files/usuarios/.gitkeep
+!files/clientes/.gitkeep
+
+# Certificados y claves privadas
+*.pem
+*.key
+*.crt
+*.pfx
+
+# Respaldos de base de datos
+*.sql
+*.dump
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Dependencias de node si hay
+node_modules/
