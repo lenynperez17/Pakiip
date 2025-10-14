@@ -195,6 +195,16 @@ class NotaCredito
                     )";
 
                     ejecutarConsulta($sql_detalle) or $sw = false;
+
+                    // IMPORTANTE: Actualizar stock - La NC devuelve productos al inventario
+                    if ($sw) {
+                        $sql_stock = "UPDATE articulo
+                            SET stock = stock + " . $cantidad[$num_elementos] . "
+                            WHERE idarticulo = '" . $idarticulo[$num_elementos] . "'";
+                        ejecutarConsulta($sql_stock) or $sw = false;
+                        error_log("Stock actualizado para artículo " . $idarticulo[$num_elementos] . " + " . $cantidad[$num_elementos]);
+                    }
+
                     $num_elementos++;
                 }
             }
