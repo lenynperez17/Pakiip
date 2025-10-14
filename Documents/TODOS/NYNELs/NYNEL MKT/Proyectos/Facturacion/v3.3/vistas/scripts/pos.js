@@ -5108,8 +5108,9 @@ function guardarNotaCredito() {
           console.log("Respuesta del servidor:", response);
 
           if (response.success) {
-            // Mostrar PDF en modal (igual que facturas/boletas)
-            var rutacarpeta = "../reportes/exNotaCredito.php?id=" + response.idnota_credito;
+            // Mostrar PDF en modal (igual que facturas/boletas) con parámetro tipodoc
+            var tipodoc = $("#nc_tipo_comprobante_afectado").val(); // '01' = Factura, '03' = Boleta
+            var rutacarpeta = "../reportes/exNcredito_new.php?id=" + response.idnota_credito + "&tipodoc=" + tipodoc;
             $("#modalCom").attr("src", rutacarpeta);
             $("#modalPreview2").modal("show");
 

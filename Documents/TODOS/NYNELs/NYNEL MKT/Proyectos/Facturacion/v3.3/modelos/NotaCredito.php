@@ -379,10 +379,23 @@ class NotaCredito
             nc.*,
             p.tipo_documento,
             p.numero_documento,
-            p.razon_social AS cliente,
-            p.domicilio_fiscal AS direccion
+            p.razon_social,
+            p.domicilio_fiscal,
+            e.numero_ruc,
+            '' AS vendedorsitio
         FROM notacd nc
-        INNER JOIN persona p ON nc.idcliente = p.idpersona
+        INNER JOIN persona p ON p.idpersona = (
+            SELECT CASE
+                WHEN nc.tipo_doc_mod = '01' THEN f.idcliente
+                WHEN nc.tipo_doc_mod = '03' THEN b.idcliente
+            END
+            FROM notacd nc2
+            LEFT JOIN factura f ON f.idfactura = nc2.idcomprobante AND nc2.tipo_doc_mod = '01'
+            LEFT JOIN boleta b ON b.idboleta = nc2.idcomprobante AND nc2.tipo_doc_mod = '03'
+            WHERE nc2.idnota = nc.idnota
+            LIMIT 1
+        )
+        INNER JOIN empresa e ON nc.idempresa = e.idempresa
         WHERE nc.idnota = '$idnota_credito'
           AND nc.idempresa = '$idempresa'";
 
