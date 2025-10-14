@@ -1772,50 +1772,90 @@ function addComprobante($impuesto)
 
 function addCadreEurosFrancsNC()
 {
+    // MODERNO: Formato de 9 líneas para compatibilidad con sistema SUNAT
     $r1  = $this->w - 70;
     $r2  = $r1 + 60;
     $y1  = $this->h - 199;
-    $y2  = $y1+22;
+    $y2  = $y1+52; // MODERNO: 52 unidades para 9 líneas (antes 22 para 3 líneas)
     $this->RoundedRect($r1, $y1, ($r2 - $r1), ($y2-$y1), 2.5, 'D');
-    $this->Line( $r1+22,  $y1, $r1+22, $y2); // avant EUROS
+    $this->Line( $r1+35,  $y1, $r1+35, $y2);
 
     $this->SetFont( "Arial", "B", 8);
-    $this->SetXY( $r1+22, $y1 );
+    $this->SetXY( $r1+32, $y1 );
     $this->Cell(30,4, "TOTALES", 0, 0, "C");
-    $this->SetFont( "Arial", "", 8);
 
-    $this->SetFont( "Arial", "B", 8);
+    $this->SetFont( "Arial", "B", 7);
+    // 9 labels modernos:
     $this->SetXY( $r1, $y1+5 );
-    $this->Cell(20,4, "IMPORTE", 0, 0, "C");
+    $this->Cell(35,4, "DESCUENTO ", 0, 0, "C");
+
     $this->SetXY( $r1, $y1+10 );
-    $this->Cell(20,4, "I.G.V.", 0, 0, "C");
+    $this->Cell(35,4, "OP. GRAVADA ", 0, 0, "C");
+
     $this->SetXY( $r1, $y1+15 );
-    $this->Cell(20,4, "TOTAL", 0, 0, "C");
+    $this->Cell(35,4, "OP. EXONERADO ", 0, 0, "C");
+
+    $this->SetXY( $r1, $y1+20 );
+    $this->Cell(35,4, "OP. INAFECTO ", 0, 0, "C");
+
+    $this->SetXY( $r1, $y1+25 );
+    $this->Cell(35,4, "ICBPER ", 0, 0, "C");
+
+    $this->SetXY( $r1, $y1+30 );
+    $this->Cell(35,4, "I.G.V. ", 0, 0, "C");
+
+    $this->SetXY( $r1, $y1+35 );
+    $this->Cell(35,4, "IMP. PAGADO ", 0, 0, "C");
+
+    $this->SetXY( $r1, $y1+40 );
+    $this->Cell(35,4, "VUELTO ", 0, 0, "C");
+
+    $this->SetXY( $r1, $y1+45 );
+    $this->Cell(35,4, "IMPORTE A PAGAR ", 0, 0, "C");
 }
 
 function addCadreEurosFrancsNC2()
 {
-   $r1  = $this->w - 70;
+    // MODERNO: Formato de 9 líneas para compatibilidad con sistema SUNAT (SEGUNDA COPIA)
+    $r1  = $this->w - 70;
     $r2  = $r1 + 60;
     $y1  = $this->h - 44;
-    $y2  = $y1+22;
+    $y2  = $y1+52; // MODERNO: 52 unidades para 9 líneas (antes 22 para 3 líneas)
     $this->RoundedRect($r1, $y1, ($r2 - $r1), ($y2-$y1), 2.5, 'D');
-    $this->Line( $r1+22,  $y1, $r1+22, $y2); // avant EUROS
+    $this->Line( $r1+35,  $y1, $r1+35, $y2);
 
     $this->SetFont( "Arial", "B", 8);
-    $this->SetXY( $r1+22, $y1 );
+    $this->SetXY( $r1+32, $y1 );
     $this->Cell(30,4, "TOTALES", 0, 0, "C");
 
-    $this->SetFont( "Arial", "", 8);
-    $this->SetFont( "Arial", "B", 6);
-
-    $this->SetFont( "Arial", "B", 8);
+    $this->SetFont( "Arial", "B", 7);
+    // 9 labels modernos:
     $this->SetXY( $r1, $y1+5 );
-    $this->Cell(20,4, "IMPORTE", 0, 0, "C");
+    $this->Cell(35,4, "DESCUENTO ", 0, 0, "C");
+
     $this->SetXY( $r1, $y1+10 );
-    $this->Cell(20,4, "I.G.V.", 0, 0, "C");
+    $this->Cell(35,4, "OP. GRAVADA ", 0, 0, "C");
+
     $this->SetXY( $r1, $y1+15 );
-    $this->Cell(20,4, "TOTAL", 0, 0, "C");
+    $this->Cell(35,4, "OP. EXONERADO ", 0, 0, "C");
+
+    $this->SetXY( $r1, $y1+20 );
+    $this->Cell(35,4, "OP. INAFECTO ", 0, 0, "C");
+
+    $this->SetXY( $r1, $y1+25 );
+    $this->Cell(35,4, "ICBPER ", 0, 0, "C");
+
+    $this->SetXY( $r1, $y1+30 );
+    $this->Cell(35,4, "I.G.V. ", 0, 0, "C");
+
+    $this->SetXY( $r1, $y1+35 );
+    $this->Cell(35,4, "IMP. PAGADO ", 0, 0, "C");
+
+    $this->SetXY( $r1, $y1+40 );
+    $this->Cell(35,4, "VUELTO ", 0, 0, "C");
+
+    $this->SetXY( $r1, $y1+45 );
+    $this->Cell(35,4, "IMPORTE A PAGAR ", 0, 0, "C");
 }
 
 function addCadreEurosFrancsND($impuesto)
@@ -1966,60 +2006,156 @@ function addTVAsComprobante( $igv, $subtotal, $moneda, $tdescuento, $icbper  )
 
 }
 
-function addTVAsNC( $igv, $total, $moneda )
+function addTVAsNC($total, $moneda, $tdescuento, $ipagado, $saldo, $icbper, $igv, $opGravada, $opExonerado)
 {
-    $this->SetFont('Arial','B',9);
-
+    // MODERNO: 9 parámetros para formato completo SUNAT
+    $this->SetFont('Arial','',8);
     $re  = $this->w - 30;
-    $rf  = $this->w - 29;
-    $y1  = $this->h - 169;
+    $y1  = $this->h - 199;
+    $this->SetFont( "Arial", "B", 10);
 
-    $this->SetXY( $re, $y1-25 );
-    $this->Cell( 5,4, number_format($total - $igv,2), '', '', 'R');
-    $this->SetXY( $re, $y1-20 );
-    $this->Cell( 4,4, number_format($igv,2), '', '', 'R');
-    $this->SetXY( $re, $y1-14 );
-    $this->Cell( 5,4, number_format($total,2), '', '', 'R');
+    // 9 valores modernos:
+    $this->SetXY( $re, $y1+6 );
+    $this->Cell( 17,4, number_format($tdescuento,2), '', '', 'R');
 
+    $this->SetXY( $re, $y1+11 );
+    $this->Cell( 17,4, number_format($opGravada,2), '', '', 'R');
+
+    $this->SetXY( $re, $y1+16 );
+    $this->Cell( 17,4, number_format($opExonerado,2), '', '', 'R');
+
+    $this->SetXY( $re, $y1+20.5 );
+    $this->Cell( 17,4, "0.00", '', '', 'R'); // Op. Inafecto
+
+    $this->SetXY( $re, $y1+25.5 );
+    $this->Cell( 17,4, number_format($icbper,2), '', '', 'R');
+
+    $this->SetXY( $re, $y1+30.5 );
+    $this->Cell( 17,4, number_format($igv,2), '', '', 'R');
+
+    $this->SetXY( $re, $y1+35.5 );
+    $this->Cell( 17,4, number_format($ipagado,2), '', '', 'R');
+
+    $this->SetXY( $re, $y1+40.5 );
+    $this->Cell( 17,4, number_format($saldo,2), '', '', 'R');
+
+    // Importe a Pagar (Total)
+    $this->SetXY( $re, $y1+45.5 );
+    $this->Cell( 17,4, number_format($total,2), '', '', 'R');
 }
 
-function addTVAsNC2( $igv, $total, $moneda )
+function addTVAsNC2($total, $moneda, $tdescuento, $ipagado, $saldo, $icbper, $igv, $opGravada, $opExonerado)
 {
-     $this->SetFont('Arial','',8);
-
+    // MODERNO: 9 parámetros para formato completo SUNAT (SEGUNDA COPIA)
+    $this->SetFont('Arial','',8);
     $re  = $this->w - 30;
-    $rf  = $this->w - 29;
     $y1  = $this->h - 44;
-    $this->SetFont( "Arial", "B", 9);
-    $this->SetXY( $re, $y1+5 );
-    $this->Cell( 5,4, number_format($total - $igv,2), '', '', 'R');
+    $this->SetFont( "Arial", "B", 10);
 
-    //$this->Cell( 17,4, $moneda.sprintf("%0.2F", $total-($total*$igv/($igv+100))), '', '', 'R');
+    // 9 valores modernos:
+    $this->SetXY( $re, $y1+6 );
+    $this->Cell( 17,4, number_format($tdescuento,2), '', '', 'R');
 
-    $this->SetXY( $re, $y1+10 );
-    $this->Cell( 5,4, number_format($igv,2), '', '', 'R');
+    $this->SetXY( $re, $y1+11 );
+    $this->Cell( 17,4, number_format($opGravada,2), '', '', 'R');
 
-    // $this->Cell( 17,4, $moneda.sprintf("%0.2F", ($total*$igv/($igv+100))), '', '', 'R');
+    $this->SetXY( $re, $y1+16 );
+    $this->Cell( 17,4, number_format($opExonerado,2), '', '', 'R');
 
-    $this->SetXY( $re, $y1+14.8 );
-    $this->Cell( 5,4, number_format($total,2), '', '', 'R');
+    $this->SetXY( $re, $y1+20.5 );
+    $this->Cell( 17,4, "0.00", '', '', 'R'); // Op. Inafecto
+
+    $this->SetXY( $re, $y1+25.5 );
+    $this->Cell( 17,4, number_format($icbper,2), '', '', 'R');
+
+    $this->SetXY( $re, $y1+30.5 );
+    $this->Cell( 17,4, number_format($igv,2), '', '', 'R');
+
+    $this->SetXY( $re, $y1+35.5 );
+    $this->Cell( 17,4, number_format($ipagado,2), '', '', 'R');
+
+    $this->SetXY( $re, $y1+40.5 );
+    $this->Cell( 17,4, number_format($saldo,2), '', '', 'R');
+
+    // Importe a Pagar (Total)
+    $this->SetXY( $re, $y1+45.5 );
+    $this->Cell( 17,4, number_format($total,2), '', '', 'R');
 }
 
-function addTVAsND($total, $moneda )
+function addTVAsND($total, $moneda, $tdescuento, $ipagado, $saldo, $icbper, $igv, $opGravada, $opExonerado)
 {
-    $this->SetFont('Arial','',9);
-
+    // MODERNO: 9 parámetros para formato completo SUNAT (Nota de Débito - Primera copia)
+    $this->SetFont('Arial','',8);
     $re  = $this->w - 30;
-    $rf  = $this->w - 29;
-    $y1  = $this->h - 178;
+    $y1  = $this->h - 192;
+    $this->SetFont( "Arial", "B", 10);
 
-    $this->SetXY( $re, $y1-25 );
-    $this->Cell( 5,4, $moneda.sprintf("%0.2F", '0' ),'', '', 'R');
-    $this->SetXY( $re, $y1-20 );
-    $this->Cell( 5,4, $moneda.sprintf("%0.2F", '0' ),'', '', 'R');
-    $this->SetXY( $re, $y1-14 );
-    $this->Cell( 5,4, $moneda.sprintf("%0.2F", $total), '', '', 'R');
+    // 9 valores modernos:
+    $this->SetXY( $re, $y1+6 );
+    $this->Cell( 17,4, number_format($tdescuento,2), '', '', 'R');
 
+    $this->SetXY( $re, $y1+11 );
+    $this->Cell( 17,4, number_format($opGravada,2), '', '', 'R');
+
+    $this->SetXY( $re, $y1+16 );
+    $this->Cell( 17,4, number_format($opExonerado,2), '', '', 'R');
+
+    $this->SetXY( $re, $y1+20.5 );
+    $this->Cell( 17,4, "0.00", '', '', 'R'); // Op. Inafecto
+
+    $this->SetXY( $re, $y1+25.5 );
+    $this->Cell( 17,4, number_format($icbper,2), '', '', 'R');
+
+    $this->SetXY( $re, $y1+30.5 );
+    $this->Cell( 17,4, number_format($igv,2), '', '', 'R');
+
+    $this->SetXY( $re, $y1+35.5 );
+    $this->Cell( 17,4, number_format($ipagado,2), '', '', 'R');
+
+    $this->SetXY( $re, $y1+40.5 );
+    $this->Cell( 17,4, number_format($saldo,2), '', '', 'R');
+
+    // Importe a Pagar (Total)
+    $this->SetXY( $re, $y1+45.5 );
+    $this->Cell( 17,4, number_format($total,2), '', '', 'R');
+}
+
+function addTVAsND2($total, $moneda, $tdescuento, $ipagado, $saldo, $icbper, $igv, $opGravada, $opExonerado)
+{
+    // MODERNO: 9 parámetros para formato completo SUNAT (Nota de Débito - Segunda copia)
+    $this->SetFont('Arial','',8);
+    $re  = $this->w - 30;
+    $y1  = $this->h - 44;
+    $this->SetFont( "Arial", "B", 10);
+
+    // 9 valores modernos:
+    $this->SetXY( $re, $y1+6 );
+    $this->Cell( 17,4, number_format($tdescuento,2), '', '', 'R');
+
+    $this->SetXY( $re, $y1+11 );
+    $this->Cell( 17,4, number_format($opGravada,2), '', '', 'R');
+
+    $this->SetXY( $re, $y1+16 );
+    $this->Cell( 17,4, number_format($opExonerado,2), '', '', 'R');
+
+    $this->SetXY( $re, $y1+20.5 );
+    $this->Cell( 17,4, "0.00", '', '', 'R'); // Op. Inafecto
+
+    $this->SetXY( $re, $y1+25.5 );
+    $this->Cell( 17,4, number_format($icbper,2), '', '', 'R');
+
+    $this->SetXY( $re, $y1+30.5 );
+    $this->Cell( 17,4, number_format($igv,2), '', '', 'R');
+
+    $this->SetXY( $re, $y1+35.5 );
+    $this->Cell( 17,4, number_format($ipagado,2), '', '', 'R');
+
+    $this->SetXY( $re, $y1+40.5 );
+    $this->Cell( 17,4, number_format($saldo,2), '', '', 'R');
+
+    // Importe a Pagar (Total)
+    $this->SetXY( $re, $y1+45.5 );
+    $this->Cell( 17,4, number_format($total,2), '', '', 'R');
 }
 
 
