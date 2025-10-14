@@ -364,5 +364,64 @@ class NotaCredito
         $sql = "UPDATE notacd SET estado = 'Anulado' WHERE idnota = '$idnota_credito'";
         return ejecutarConsulta($sql);
     }
+
+    /**
+     * Obtener datos completos de cabecera NC para reporte PDF
+     *
+     * @param int $idnota_credito ID de la nota de crédito
+     * @param int $idempresa ID de la empresa
+     *
+     * @return object Datos completos de la NC
+     */
+    public function notacreditocabecera($idnota_credito, $idempresa)
+    {
+        $sql = "SELECT
+            nc.*,
+            p.tipo_documento,
+            p.numero_documento,
+            p.razon_social AS cliente,
+            p.domicilio_fiscal AS direccion
+        FROM notacd nc
+        INNER JOIN persona p ON nc.idcliente = p.idpersona
+        WHERE nc.idnota = '$idnota_credito'
+          AND nc.idempresa = '$idempresa'";
+
+        return ejecutarConsulta($sql);
+    }
+
+    /**
+     * Obtener detalle de items de NC para reporte PDF
+     *
+     * @param int $idnota_credito ID de la nota de crédito
+     *
+     * @return mysqli_result Items de la NC
+     */
+    public function notacreditodetalle($idnota_credito)
+    {
+        $sql = "SELECT
+            d.*,
+            a.codigo,
+            a.nombre AS articulo,
+            a.unidad_medida
+        FROM detalle_notacd_art d
+        INNER JOIN articulo a ON d.idarticulo = a.idarticulo
+        WHERE d.idnotacd = '$idnota_credito'
+        ORDER BY d.nro_orden ASC";
+
+        return ejecutarConsulta($sql);
+    }
+
+    /**
+     * Obtener datos de la empresa para reporte PDF
+     *
+     * @param int $idempresa ID de la empresa
+     *
+     * @return mysqli_result Datos de la empresa
+     */
+    public function datosemp($idempresa)
+    {
+        $sql = "SELECT * FROM empresa WHERE idempresa = '$idempresa'";
+        return ejecutarConsulta($sql);
+    }
 }
 ?>

@@ -5108,12 +5108,19 @@ function guardarNotaCredito() {
           console.log("Respuesta del servidor:", response);
 
           if (response.success) {
+            // Abrir PDF automáticamente en nueva ventana
+            window.open(
+              `../reportes/exNotaCredito.php?id=${response.idnota_credito}`,
+              '_blank'
+            );
+
             Swal.fire({
               icon: "success",
               title: "¡Nota de Crédito guardada!",
               html: `
                 <p>La Nota de Crédito se registró correctamente</p>
                 <p><strong>Número:</strong> ${response.numeracion}</p>
+                <p><small>El comprobante PDF se abrió en una nueva ventana</small></p>
               `,
               confirmButtonColor: "#28a745"
             }).then(() => {
