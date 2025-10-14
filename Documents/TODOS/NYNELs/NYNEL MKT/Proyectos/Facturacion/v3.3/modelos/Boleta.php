@@ -1968,7 +1968,7 @@ class Boleta
 
       $Lmoneda = "NUEVOS SOLES";
 
-      require_once "Letras.php";
+      require_once __DIR__ . "/../reportes/Letras.php";
 
       $V = new EnLetras();
       $con_letra = strtoupper($V->ValorEnLetras($total, $Lmoneda));
@@ -2781,7 +2781,7 @@ class Boleta
 
           $Lmoneda = "NUEVOS SOLES";
 
-          require_once "Letras.php";
+          require_once __DIR__ . "/../reportes/Letras.php";
 
           $V = new EnLetras();
 
@@ -3939,7 +3939,7 @@ class Boleta
 
       $Lmoneda = "NUEVOS SOLES";
 
-      require_once "Letras.php";
+      require_once __DIR__ . "/../reportes/Letras.php";
 
       $V = new EnLetras();
       $con_letra = strtoupper($V->ValorEnLetras($total, $Lmoneda));
@@ -5608,7 +5608,7 @@ class Boleta
 
 
 
-  //         require_once "Letras.php";
+  //         require_once __DIR__ . "/../reportes/Letras.php";
 
   //         $V=new EnLetras(); 
 
@@ -5984,7 +5984,7 @@ class Boleta
 
   // //Convertimos el total en letras
 
-  // require_once "Letras.php";
+  // require_once __DIR__ . "/../reportes/Letras.php";
 
   // $V=new EnLetras(); 
 

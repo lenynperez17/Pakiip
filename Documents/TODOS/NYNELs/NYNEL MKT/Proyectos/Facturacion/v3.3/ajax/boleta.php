@@ -1,4 +1,40 @@
 <?php
+// ============================================
+// CONFIGURACIÓN DE ERRORES PARA DEBUGGING
+// ============================================
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+
+// Handler personalizado para errores en AJAX - retorna JSON
+set_error_handler(function($errno, $errstr, $errfile, $errline) {
+    $error = [
+        'error' => true,
+        'type' => 'PHP Error',
+        'code' => $errno,
+        'message' => $errstr,
+        'file' => $errfile,
+        'line' => $errline
+    ];
+    error_log("AJAX Error: " . json_encode($error));
+    // No echo aquí para evitar romper respuestas JSON válidas
+    return false; // Permite que PHP maneje el error normalmente también
+});
+
+// Handler para excepciones no capturadas
+set_exception_handler(function($exception) {
+    http_response_code(500);
+    echo json_encode([
+        'error' => true,
+        'type' => 'PHP Exception',
+        'message' => $exception->getMessage(),
+        'file' => $exception->getFile(),
+        'line' => $exception->getLine(),
+        'trace' => $exception->getTraceAsString()
+    ]);
+});
+// ============================================
+
 // SEGURIDAD: Usar sesión segura y helpers de validación
 require_once "../config/Conexion.php";
 require_once "../config/ajax_helper.php";
@@ -18,7 +54,8 @@ $usuario = new Usuario();
 //Factura
 $idboleta = isset($_POST["idboleta"]) ? limpiarCadena($_POST["idboleta"]) : "";
 //$idusuario="2";
-$idusuario = $_SESSION["idusuario"];
+// Verificar si hay sesión activa, si no usar valor por defecto para consultas de solo lectura
+$idusuario = isset($_SESSION["idusuario"]) ? $_SESSION["idusuario"] : null;
 $fecha_emision_01 = isset($_POST["fecha_emision_01"]) ? limpiarCadena($_POST["fecha_emision_01"]) : "";
 $firma_digital_36 = isset($_POST["firma_digital_36"]) ? limpiarCadena($_POST["firma_digital_36"]) : "";
 $idempresa = isset($_POST["idempresa"]) ? limpiarCadena($_POST["idempresa"]) : "";
@@ -1062,27 +1099,53 @@ switch ($_GET["op"]) {
 
 
     case 'envioautomatico':
-        $idempresa = $_GET['idempresa'];
+        // Obtener idempresa de GET o de SESSION
+        $idempresa = isset($_GET['idempresa']) ? $_GET['idempresa'] : (isset($_SESSION['idempresa']) ? $_SESSION['idempresa'] : 1);
+
         require_once "../modelos/Rutas.php";
         $rutas = new Rutas();
         $Rrutas = $rutas->mostrar2($idempresa);
+
+        // Verificar que se obtuvieron las rutas
+        if (!$Rrutas || $Rrutas->num_rows == 0) {
+            echo json_encode([
+                'error' => true,
+                'message' => 'No se encontraron rutas configuradas para la empresa',
+                'idempresa' => $idempresa
+            ]);
+            break;
+        }
+
         $Prutas = $Rrutas->fetch_object();
-        $rutafirma = $Prutas->rutafirma; // ruta de la carpeta ENVIO
-        $rutaenvio = $Prutas->rutaenvio; // ruta de la carpeta ENVIO
-        $rutarpta = $Prutas->rutarpta; // ruta de la carpeta RESPUESTA
+        $rutafirma = $Prutas->rutafirma ?? ''; // ruta de la carpeta FIRMA
+        $rutaenvio = $Prutas->rutaenvio ?? ''; // ruta de la carpeta ENVIO
+        $rutarpta = $Prutas->rutarpta ?? '';   // ruta de la carpeta RESPUESTA
 
         //Agregar=====================================================
         // Ruta del directorio donde están los archivos
         $path = $rutaenvio;
         $path2 = $rutarpta;
-        // Arreglo con todos los nombres de los archivos
-        $files = array_diff(scandir($path), array('.', '..'));
-        $files2 = array_diff(scandir($path2), array('.', '..'));
+
+        // Verificar que las rutas existan antes de escanear
+        $files = [];
+        $files2 = [];
+
+        if (!empty($path) && is_dir($path)) {
+            $files = array_diff(scandir($path), array('.', '..'));
+        } else {
+            error_log("BOLETA - Ruta de envío no existe o está vacía: " . $path);
+        }
+
+        if (!empty($path2) && is_dir($path2)) {
+            $files2 = array_diff(scandir($path2), array('.', '..'));
+        } else {
+            error_log("BOLETA - Ruta de respuesta no existe o está vacía: " . $path2);
+        }
 
         //=============================================================
 
 
-        $rspta = $boleta->listar($_SESSION['idempresa']);
+        $rspta = $boleta->listar($idempresa);
         //Vamos a declarar un array
         $data = array();
 
@@ -1120,11 +1183,22 @@ switch ($_GET["op"]) {
                         $UpSt = $boleta->ActualizarEstado($reg->idboleta, $st);
                     }
                 }
-                $boleta->generarxml($reg->idboleta, $_SESSION['idempresa']);
+
+                // Intentar generar XML, pero no romper si falla
+                try {
+                    $boleta->generarxml($reg->idboleta, $idempresa);
+                } catch (Throwable $e) {
+                    error_log("ERROR generando XML para boleta {$reg->idboleta}: " . $e->getMessage());
+                }
             } elseif ($reg->estado == '4') {
-                $boleta->enviarxmlSUNAT($reg->idboleta, $_SESSION['idempresa']);
-                $st = "5";
-                $UpSt = $boleta->ActualizarEstado($reg->idboleta, $st);
+                // Intentar enviar a SUNAT, pero no romper si falla
+                try {
+                    $boleta->enviarxmlSUNAT($reg->idboleta, $idempresa);
+                    $st = "5";
+                    $UpSt = $boleta->ActualizarEstado($reg->idboleta, $st);
+                } catch (Throwable $e) {
+                    error_log("ERROR enviando XML a SUNAT para boleta {$reg->idboleta}: " . $e->getMessage());
+                }
 
             }
 
