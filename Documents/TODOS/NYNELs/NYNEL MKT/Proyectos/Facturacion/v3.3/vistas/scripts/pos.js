@@ -2995,6 +2995,7 @@ $("#numero_documento2").on("keyup", function () {
         $("#domicilio_fiscal2").val($("#" + id).attr("domicilio"));
         $("#correocli").val($("#" + id).attr("email"));
         $("#idpersona").val(id);
+        $("#tipo_documento_cliente").val($("#" + id).attr("tipodocumento"));
         //$("#resultado").html("<p align='center'><img src='../public/images/spinner.gif' /></p>");
         //Hacemos desaparecer el resto de sugerencias
 

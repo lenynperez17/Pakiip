@@ -274,7 +274,8 @@ class Persona
 					'domicilio="' . utf8_encode($row['domicilio_fiscal']) . '" ' .
 					'nombres="' . utf8_encode($row['nombres']) . '" ' .
 					'id="' . $row['idpersona'] . '" ' .
-					'email="' . $row['email'] . '">' . $dniOrRuc . '</a></div>';
+					'email="' . $row['email'] . '" ' .
+					'tipodocumento="' . $row['tipo_documento'] . '">' . $dniOrRuc . '</a></div>';
 				$cc = $cc + 1;
 			}
 		}
