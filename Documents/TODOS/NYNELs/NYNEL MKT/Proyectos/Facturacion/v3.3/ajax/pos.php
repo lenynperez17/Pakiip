@@ -6,7 +6,8 @@ require_once "../config/Conexion.php";
 require_once "../modelos/PosModelo.php";
 $posmodelo = new PosModelo();
 //Primeros productos
-$idarticulo = isset($_POST["idarticulo"]) ? limpiarCadena($_POST["idarticulo"]) : "";
+// NOTA: $idarticulo puede ser array en Nota de Crédito/Débito, NO aplicar limpiarCadena aquí
+$idarticulo = isset($_POST["idarticulo"]) ? $_POST["idarticulo"] : "";
 $idfamilia = isset($_POST["idfamilia"]) ? limpiarCadena($_POST["idfamilia"]) : "";
 $codigo_proveedor = isset($_POST["codigo_proveedor"]) ? limpiarCadena($_POST["codigo_proveedor"]) : "";
 $codigo = isset($_POST["codigo"]) ? limpiarCadena($_POST["codigo"]) : "";
