@@ -979,45 +979,42 @@ function addCadreEurosFrancs()
     $r1  = $this->w - 70;
     $r2  = $r1 + 60;
     $y1  = $this->h - 54;
-    $y2  = $y1+47; // Aumentado para incluir todas las operaciones
+    $y2  = $y1+52; // MODERNO: 52 unidades para 9 líneas
     $this->RoundedRect($r1, $y1, ($r2 - $r1), ($y2-$y1), 2.5, 'D');
-    $this->Line( $r1+35,  $y1, $r1+35, $y2); // ligne verticale
+    $this->Line( $r1+35,  $y1, $r1+35, $y2);
 
     $this->SetFont( "Arial", "B", 8);
     $this->SetXY( $r1+32, $y1 );
     $this->Cell(30,4, "TOTALES", 0, 0, "C");
 
     $this->SetFont( "Arial", "B", 7);
+    // 9 labels modernos:
     $this->SetXY( $r1, $y1+5 );
     $this->Cell(35,4, "DESCUENTO ", 0, 0, "C");
 
-    $this->SetFont( "Arial", "B", 7);
     $this->SetXY( $r1, $y1+10 );
     $this->Cell(35,4, "OP. GRAVADA ", 0, 0, "C");
 
-    $this->SetFont( "Arial", "B", 7);
     $this->SetXY( $r1, $y1+15 );
     $this->Cell(35,4, "OP. EXONERADO ", 0, 0, "C");
 
-    $this->SetFont( "Arial", "B", 7);
     $this->SetXY( $r1, $y1+20 );
     $this->Cell(35,4, "OP. INAFECTO ", 0, 0, "C");
 
-    $this->SetFont( "Arial", "B", 7);
     $this->SetXY( $r1, $y1+25 );
     $this->Cell(35,4, "ICBPER ", 0, 0, "C");
 
-    $this->SetFont( "Arial", "B", 7);
     $this->SetXY( $r1, $y1+30 );
     $this->Cell(35,4, "I.G.V. ", 0, 0, "C");
 
-    $this->SetFont( "Arial", "B", 7);
     $this->SetXY( $r1, $y1+35 );
     $this->Cell(35,4, "IMP. PAGADO ", 0, 0, "C");
 
-    $this->SetFont( "Arial", "B", 7);
     $this->SetXY( $r1, $y1+40 );
     $this->Cell(35,4, "VUELTO ", 0, 0, "C");
+
+    $this->SetXY( $r1, $y1+45 );
+    $this->Cell(35,4, "IMPORTE A PAGAR ", 0, 0, "C");
 }
 
 function addCadreEurosFrancs2()
@@ -1060,51 +1057,38 @@ function addCadreEurosFrancs2()
 function addTVAs($total, $moneda, $tdescuento, $ipagado, $saldo, $icbper, $igv, $opGravada, $opExonerado )
 {
     $this->SetFont('Arial','',8);
-
     $re  = $this->w - 30;
-    $rf  = $this->w - 29;
     $y1  = $this->h - 54;
+    $this->SetFont( "Arial", "B", 10);
 
-    // Descuento
-    $this->SetFont( "Arial", "B", 8);
-    $this->SetXY( $re, $y1+5 );
-    $this->Cell( 14,4, number_format($tdescuento,2), '', '', 'R');
+    // 9 valores modernos:
+    $this->SetXY( $re, $y1+6 );
+    $this->Cell( 17,4, number_format($tdescuento,2), '', '', 'R');
 
-    // Op. Gravada
-    $this->SetFont( "Arial", "B", 8);
-    $this->SetXY( $re, $y1+10 );
-    $this->Cell( 14,4, number_format($opGravada,2), '', '', 'R');
+    $this->SetXY( $re, $y1+11 );
+    $this->Cell( 17,4, number_format($opGravada,2), '', '', 'R');
 
-    // Op. Exonerado
-    $this->SetFont( "Arial", "B", 8);
-    $this->SetXY( $re, $y1+15 );
-    $this->Cell( 14,4, number_format($opExonerado,2), '', '', 'R');
+    $this->SetXY( $re, $y1+16 );
+    $this->Cell( 17,4, number_format($opExonerado,2), '', '', 'R');
 
-    // Op. Inafecto (siempre 0.00)
-    $this->SetFont( "Arial", "B", 8);
-    $this->SetXY( $re, $y1+20 );
-    $this->Cell( 14,4, "0.00", '', '', 'R');
+    $this->SetXY( $re, $y1+20.5 );
+    $this->Cell( 17,4, "0.00", '', '', 'R'); // Op. Inafecto
 
-    // ICBPER
-    $this->SetFont( "Arial", "B", 8);
-    $this->SetXY( $re, $y1+25 );
-    $this->Cell( 14,4, number_format($icbper,2), '', '', 'R');
+    $this->SetXY( $re, $y1+25.5 );
+    $this->Cell( 17,4, number_format($icbper,2), '', '', 'R');
 
-    // IGV
-    $this->SetFont( "Arial", "B", 8);
-    $this->SetXY( $re, $y1+30 );
-    $this->Cell( 14,4, number_format($igv,2), '', '', 'R');
+    $this->SetXY( $re, $y1+30.5 );
+    $this->Cell( 17,4, number_format($igv,2), '', '', 'R');
 
-    // Importe Pagado
-    $this->SetFont( "Arial", "B", 8);
-    $this->SetXY( $re, $y1+35 );
-    $this->Cell( 14,4, number_format($ipagado,2), '', '', 'R');
+    $this->SetXY( $re, $y1+35.5 );
+    $this->Cell( 17,4, number_format($ipagado,2), '', '', 'R');
 
-    // Vuelto
-    $this->SetFont( "Arial", "B", 8);
-    $this->SetXY( $re, $y1+40 );
-    $this->Cell( 14,4, number_format($saldo,2), '', '', 'R');
+    $this->SetXY( $re, $y1+40.5 );
+    $this->Cell( 17,4, number_format($saldo,2), '', '', 'R');
 
+    // Importe a Pagar (Total)
+    $this->SetXY( $re, $y1+45.5 );
+    $this->Cell( 17,4, number_format($total,2), '', '', 'R');
 }
 
 function addTVAs2($total, $moneda, $tdescuento)
