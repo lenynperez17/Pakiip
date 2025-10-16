@@ -17,6 +17,7 @@ $serie_comprobante = isset($_POST["serie_comprobante"]) ? limpiarCadena($_POST["
 $num_comprobante = isset($_POST["num_comprobante"]) ? limpiarCadena($_POST["num_comprobante"]) : "";
 $guia = isset($_POST["guia"]) ? limpiarCadena($_POST["guia"]) : "";
 $idempresa = isset($_POST["idempresa"]) ? limpiarCadena($_POST["idempresa"]) : "";
+$idalmacen = isset($_POST["idalmacen"]) && $_POST["idalmacen"] !== "" ? limpiarCadena($_POST["idalmacen"]) : null;
 
 
 $subtotal_compra = isset($_POST["subtotal_compra"]) && $_POST["subtotal_compra"] !== "" ? limpiarCadena($_POST["subtotal_compra"]) : "0";
@@ -38,7 +39,16 @@ $factorc = isset($_POST["factorc"]) && $_POST["factorc"] !== "" ? limpiarCadena(
 
 $vunitario = isset($_POST["vunitario"]) && $_POST["vunitario"] !== "" ? limpiarCadena($_POST["vunitario"]) : "0";
 
+// ========== CAMPOS SUNAT CABECERA ==========
+$ruc_emisor = isset($_POST["ruc_emisor"]) ? limpiarCadena($_POST["ruc_emisor"]) : "";
+$descripcion_compra = isset($_POST["descripcion_compra"]) ? limpiarCadena($_POST["descripcion_compra"]) : "";
+// ===========================================
 
+// ========== CAMPOS SUNAT DETALLE ==========
+$codigo_producto = isset($_POST["codigo_producto"]) ? $_POST["codigo_producto"] : [];
+$descripcion_producto = isset($_POST["descripcion_producto"]) ? $_POST["descripcion_producto"] : [];
+$unidad_medida_sunat = isset($_POST["unidad_medida_sunat"]) ? $_POST["unidad_medida_sunat"] : [];
+// ==========================================
 
 
 switch ($_GET["op"]) {
@@ -73,13 +83,20 @@ switch ($_GET["op"]) {
                     $tcambio,
                     $hora,
                     $moneda,
-                    $idempresa
+                    $idempresa,
+                    $idalmacen,
+                    $ruc_emisor,
+                    $descripcion_compra,
+                    $codigo_producto,
+                    $descripcion_producto,
+                    $unidad_medida_sunat
                 );
 
                 if ($rspta) {
                     // ========== AUDITORÍA: Registrar creación de compra normal ==========
                     registrarOperacionCreate('compra', $serie_comprobante . '-' . $num_comprobante, [
                         'idproveedor' => $idproveedor,
+                        'ruc_emisor' => $ruc_emisor,
                         'tipo_comprobante' => $tipo_comprobante,
                         'subtotal' => $subtotal_compra,
                         'igv' => $total_igv,
@@ -87,7 +104,8 @@ switch ($_GET["op"]) {
                         'moneda' => $moneda,
                         'tipo_cambio' => $tcambio,
                         'items' => count($_POST["idarticulo"]),
-                        'guia_remision' => $guia
+                        'guia_remision' => $guia,
+                        'descripcion' => $descripcion_compra
                     ], "Compra {$tipo_comprobante} {$serie_comprobante}-{$num_comprobante} registrada exitosamente por valor de {$moneda} {$total_compra}");
 
                     echo "Compra registrada";
@@ -138,13 +156,20 @@ switch ($_GET["op"]) {
                     $totalcantidad,
                     $totalcostounitario,
                     $vunitario,
-                    $factorc
+                    $factorc,
+                    $idalmacen,
+                    $ruc_emisor,
+                    $descripcion_compra,
+                    $codigo_producto,
+                    $descripcion_producto,
+                    $unidad_medida_sunat
                 );
 
                 if ($rspta) {
                     // ========== AUDITORÍA: Registrar creación de compra con subartículos ==========
                     registrarOperacionCreate('compra', $serie_comprobante . '-' . $num_comprobante, [
                         'idproveedor' => $idproveedor,
+                        'ruc_emisor' => $ruc_emisor,
                         'tipo_comprobante' => $tipo_comprobante,
                         'subtotal' => $subtotal_compra,
                         'igv' => $total_igv,
@@ -154,7 +179,8 @@ switch ($_GET["op"]) {
                         'items' => count($_POST["idarticulo"]),
                         'con_subarticulos' => true,
                         'cantidad_total_subarticulos' => $totalcantidad,
-                        'guia_remision' => $guia
+                        'guia_remision' => $guia,
+                        'descripcion' => $descripcion_compra
                     ], "Compra {$tipo_comprobante} {$serie_comprobante}-{$num_comprobante} con subartículos registrada exitosamente por valor de {$moneda} {$total_compra}");
 
                     echo "Compra registrada con subarticulos";
@@ -451,6 +477,244 @@ switch ($_GET["op"]) {
         } else {
             echo json_encode(array(
                 "encontrado" => false
+            ));
+        }
+        break;
+
+    case 'listarUnidadesSUNAT':
+        // Listar todas las unidades de medida SUNAT del Catálogo 03
+        global $conexion;
+        $sql = "SELECT codigo_sunat, descripcion FROM umedida_sunat WHERE estado = 1 ORDER BY descripcion ASC";
+        $resultado = $conexion->query($sql);
+
+        $unidades = array();
+        if ($resultado) {
+            while ($row = $resultado->fetch_object()) {
+                $unidades[] = array(
+                    'codigo' => $row->codigo_sunat,
+                    'descripcion' => $row->descripcion
+                );
+            }
+        }
+
+        echo json_encode($unidades);
+        break;
+
+    case 'registrarCompraRapida':
+        // SEGURIDAD: Validar token CSRF
+        if (!validarCSRFAjax()) {
+            echo json_encode(array(
+                "success" => false,
+                "message" => "Error: Token de seguridad inválido. Por favor, recarga la página e intenta nuevamente."
+            ));
+            exit();
+        }
+
+        // Obtener datos del formulario del modal
+        $fecha_compra = isset($_POST["fecha_compra"]) ? limpiarCadena($_POST["fecha_compra"]) : date('Y-m-d');
+        $tipo_comprobante_modal = isset($_POST["tipo_comprobante"]) ? limpiarCadena($_POST["tipo_comprobante"]) : "01";
+        $serie_modal = isset($_POST["serie"]) ? limpiarCadena($_POST["serie"]) : "";
+        $numero_modal = isset($_POST["numero"]) ? limpiarCadena($_POST["numero"]) : "";
+        $moneda_modal = isset($_POST["moneda"]) ? limpiarCadena($_POST["moneda"]) : "PEN";
+        $codigo_barra = isset($_POST["codigo_barra"]) ? limpiarCadena($_POST["codigo_barra"]) : "";
+        $unidad_medida_modal = isset($_POST["unidad_medida"]) ? limpiarCadena($_POST["unidad_medida"]) : "NIU";
+        $nombre_articulo = isset($_POST["nombre_articulo"]) ? limpiarCadena($_POST["nombre_articulo"]) : "";
+        $cantidad_modal = isset($_POST["cantidad"]) && $_POST["cantidad"] !== "" ? floatval($_POST["cantidad"]) : 1;
+        $base_imponible = isset($_POST["base_imponible"]) && $_POST["base_imponible"] !== "" ? floatval($_POST["base_imponible"]) : 0;
+        $igv_modal = isset($_POST["igv"]) && $_POST["igv"] !== "" ? floatval($_POST["igv"]) : 0;
+        $importe_total = isset($_POST["importe_total"]) && $_POST["importe_total"] !== "" ? floatval($_POST["importe_total"]) : 0;
+
+        // Validaciones básicas
+        if (empty($serie_modal) || empty($numero_modal) || empty($nombre_articulo) || $cantidad_modal <= 0 || $importe_total <= 0) {
+            echo json_encode(array(
+                "success" => false,
+                "message" => "Error: Datos incompletos. Por favor, complete todos los campos obligatorios."
+            ));
+            exit();
+        }
+
+        // Obtener o crear artículo
+        require_once "../modelos/Articulo.php";
+        $articulo_obj = new Articulo();
+
+        // Buscar si el artículo ya existe por nombre o código de barra
+        global $conexion;
+        $buscar_articulo = "";
+        if (!empty($codigo_barra)) {
+            $buscar_articulo = "SELECT idarticulo, codigo FROM articulo
+                               WHERE (nombre = ? OR codigo = ?) AND idempresa = ? AND estado = 1 LIMIT 1";
+            $stmt = $conexion->prepare($buscar_articulo);
+            $stmt->bind_param("ssi", $nombre_articulo, $codigo_barra, $_SESSION['idempresa']);
+        } else {
+            $buscar_articulo = "SELECT idarticulo, codigo FROM articulo
+                               WHERE nombre = ? AND idempresa = ? AND estado = 1 LIMIT 1";
+            $stmt = $conexion->prepare($buscar_articulo);
+            $stmt->bind_param("si", $nombre_articulo, $_SESSION['idempresa']);
+        }
+
+        $stmt->execute();
+        $resultado_articulo = $stmt->get_result();
+
+        $idarticulo = null;
+        $codigo_articulo = "";
+
+        if ($resultado_articulo->num_rows > 0) {
+            // Artículo ya existe
+            $row = $resultado_articulo->fetch_object();
+            $idarticulo = $row->idarticulo;
+            $codigo_articulo = $row->codigo;
+        } else {
+            // Crear nuevo artículo
+            // Generar código único si no tiene código de barra
+            $codigo_nuevo = !empty($codigo_barra) ? $codigo_barra : "ART" . time();
+
+            // Obtener ID de unidad de medida del sistema (buscar equivalencia con SUNAT)
+            $sql_um = "SELECT idunidad FROM umedida WHERE codigo_sunat = ? LIMIT 1";
+            $stmt_um = $conexion->prepare($sql_um);
+            $stmt_um->bind_param("s", $unidad_medida_modal);
+            $stmt_um->execute();
+            $resultado_um = $stmt_um->get_result();
+
+            $idunidad = 58; // NIU por defecto
+            if ($resultado_um->num_rows > 0) {
+                $row_um = $resultado_um->fetch_object();
+                $idunidad = $row_um->idunidad;
+            }
+
+            // Calcular precio unitario
+            $precio_unitario = $cantidad_modal > 0 ? ($base_imponible / $cantidad_modal) : 0;
+
+            // Insertar artículo
+            $sql_insert_art = "INSERT INTO articulo (
+                codigo, nombre, unidad_medida, stock, precio_venta,
+                costo_compra, idempresa, estado, codigo_sunat,
+                tipo_afectacion_igv, created_at
+            ) VALUES (?, ?, ?, 0, ?, ?, ?, 1, ?, '10', NOW())";
+
+            $stmt_insert = $conexion->prepare($sql_insert_art);
+            $codigo_sunat_art = "00000000"; // Genérico
+            $stmt_insert->bind_param(
+                "ssiidis",
+                $codigo_nuevo,
+                $nombre_articulo,
+                $idunidad,
+                $precio_unitario,
+                $precio_unitario,
+                $_SESSION['idempresa'],
+                $codigo_sunat_art
+            );
+
+            if ($stmt_insert->execute()) {
+                $idarticulo = $conexion->insert_id;
+                $codigo_articulo = $codigo_nuevo;
+            } else {
+                echo json_encode(array(
+                    "success" => false,
+                    "message" => "Error al crear el artículo: " . $conexion->error
+                ));
+                exit();
+            }
+        }
+
+        // Preparar datos para la compra
+        $idusuario = $_SESSION["idusuario"];
+        $idproveedor = 1; // Proveedor genérico o el primer proveedor (ajustar según necesidad)
+        $fecha_emision = $fecha_compra;
+        $tipo_comprobante = $tipo_comprobante_modal;
+        $serie_comprobante = $serie_modal;
+        $num_comprobante = $numero_modal;
+        $guia = "";
+        $subtotal_compra = $base_imponible;
+        $total_igv = $igv_modal;
+        $total_compra = $importe_total;
+        $tcambio = ($moneda_modal == "USD") ? 1.00 : 1.00; // Ajustar según necesidad
+        $hora = date('H:i:s');
+        $moneda = $moneda_modal;
+        $idempresa = $_SESSION['idempresa'];
+        $idalmacen = 1; // Almacén principal por defecto (ajustar según necesidad)
+
+        // Arrays para el detalle (un solo artículo)
+        $idarticulos_array = array($idarticulo);
+        $valor_unitario_array = array($precio_unitario);
+        $cantidad_array = array($cantidad_modal);
+        $subtotal_array = array($importe_total);
+        $codigo_array = array($codigo_articulo);
+        $unidad_medida_array = array($idunidad);
+
+        // Campos SUNAT
+        $ruc_emisor = "";
+        $descripcion_compra = "Compra rápida: " . $nombre_articulo;
+        $codigo_producto_array = array($codigo_articulo);
+        $descripcion_producto_array = array($nombre_articulo);
+        $unidad_medida_sunat_array = array($unidad_medida_modal);
+
+        // Insertar compra usando el método existente
+        $rspta = $compra->insertar(
+            $idusuario,
+            $idproveedor,
+            $fecha_emision,
+            $tipo_comprobante,
+            $serie_comprobante,
+            $num_comprobante,
+            $guia,
+            $subtotal_compra,
+            $total_igv,
+            $total_compra,
+            $idarticulos_array,
+            $valor_unitario_array,
+            $cantidad_array,
+            $subtotal_array,
+            $codigo_array,
+            $unidad_medida_array,
+            $tcambio,
+            $hora,
+            $moneda,
+            $idempresa,
+            $idalmacen,
+            $ruc_emisor,
+            $descripcion_compra,
+            $codigo_producto_array,
+            $descripcion_producto_array,
+            $unidad_medida_sunat_array
+        );
+
+        if ($rspta) {
+            // ========== AUDITORÍA: Registrar creación de compra rápida ==========
+            registrarOperacionCreate('compra', $serie_comprobante . '-' . $num_comprobante, [
+                'tipo' => 'compra_rapida',
+                'tipo_comprobante' => $tipo_comprobante,
+                'subtotal' => $subtotal_compra,
+                'igv' => $total_igv,
+                'total_compra' => $total_compra,
+                'moneda' => $moneda,
+                'articulo' => $nombre_articulo,
+                'cantidad' => $cantidad_modal,
+                'unidad_medida_sunat' => $unidad_medida_modal
+            ], "Compra rápida {$tipo_comprobante} {$serie_comprobante}-{$num_comprobante} registrada exitosamente por valor de {$moneda} {$total_compra}");
+
+            echo json_encode(array(
+                "success" => true,
+                "message" => "Compra registrada exitosamente",
+                "idcompra" => $rspta,
+                "serie" => $serie_comprobante,
+                "numero" => $num_comprobante
+            ));
+        } else {
+            // ========== AUDITORÍA: Registrar intento fallido ==========
+            registrarAuditoria('CREATE', 'compra', [
+                'descripcion' => "Intento fallido de registrar compra rápida {$tipo_comprobante} {$serie_comprobante}-{$num_comprobante}",
+                'resultado' => 'FALLIDO',
+                'codigo_error' => 'ERROR_INSERTAR_COMPRA_RAPIDA',
+                'mensaje_error' => 'No se pudo registrar la compra rápida',
+                'metadata' => [
+                    'articulo' => $nombre_articulo,
+                    'total' => $total_compra
+                ]
+            ]);
+
+            echo json_encode(array(
+                "success" => false,
+                "message" => "Error al registrar la compra. Por favor, revise los datos e intente nuevamente."
             ));
         }
         break;
