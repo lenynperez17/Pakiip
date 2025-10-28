@@ -157,6 +157,176 @@ class Articulo
         return ejecutarConsultaPreparada($sqlsubartiupdate, "di", [$stockproduct, $idarticuloproduct]);
     }
 
+    /**
+     * Validar stock disponible antes de realizar una venta
+     *
+     * @param int $idarticulo ID del artículo a validar
+     * @param float $cantidad_solicitada Cantidad que se desea vender
+     * @param string $tipoitem Tipo de item ('productos' o 'servicios')
+     * @return array [
+     *   'valido' => bool,
+     *   'stock_actual' => float,
+     *   'mensaje' => string
+     * ]
+     */
+    public function validarStockDisponible($idarticulo, $cantidad_solicitada, $tipoitem = 'productos')
+    {
+        // Los servicios NO requieren validación de stock
+        if ($tipoitem === 'servicios') {
+            return [
+                'valido' => true,
+                'stock_actual' => 0,
+                'mensaje' => 'Los servicios no requieren control de stock'
+            ];
+        }
+
+        // SEGURIDAD: Usar prepared statement para consultar stock
+        $sql = "SELECT stock, nombre, codigo FROM articulo WHERE idarticulo = ?";
+        $result = ejecutarConsultaPreparada($sql, "i", [$idarticulo]);
+
+        if ($result === false) {
+            return [
+                'valido' => false,
+                'stock_actual' => 0,
+                'mensaje' => 'Error al consultar el artículo en la base de datos'
+            ];
+        }
+
+        $row = $result->fetch_object();
+
+        if (!$row) {
+            return [
+                'valido' => false,
+                'stock_actual' => 0,
+                'mensaje' => 'El artículo no existe en la base de datos'
+            ];
+        }
+
+        $stock_actual = (float) $row->stock;
+        $nombre = $row->nombre;
+        $codigo = $row->codigo;
+
+        // Validar si hay stock suficiente
+        if ($stock_actual < $cantidad_solicitada) {
+            return [
+                'valido' => false,
+                'stock_actual' => $stock_actual,
+                'mensaje' => "Stock insuficiente para '{$nombre}' (Código: {$codigo}). " .
+                            "Stock actual: {$stock_actual}, Cantidad solicitada: {$cantidad_solicitada}"
+            ];
+        }
+
+        // Stock suficiente
+        return [
+            'valido' => true,
+            'stock_actual' => $stock_actual,
+            'mensaje' => "Stock disponible: {$stock_actual} unidades"
+        ];
+    }
+
+    /**
+     * Calcular valores de kardex usando método de Promedio Ponderado
+     *
+     * Este método calcula automáticamente los campos saldo_final, costo_promedio y valor_final
+     * del kardex basándose en el historial de movimientos del artículo.
+     *
+     * @param int $idarticulo ID del artículo
+     * @param float $cantidad Cantidad de la transacción
+     * @param float $costo_unitario Costo unitario de la transacción
+     * @param string $tipo_transaccion 'COMPRA' o 'VENTA'
+     * @param string $tipoitem Tipo de item ('productos' o 'servicios')
+     * @return array [
+     *   'saldo_final' => float,      // Stock resultante después de la transacción
+     *   'costo_promedio' => float,   // Costo promedio ponderado
+     *   'valor_final' => float       // Valor total del inventario (saldo_final * costo_promedio)
+     * ]
+     */
+    public function calcularValoresKardex($idarticulo, $cantidad, $costo_unitario, $tipo_transaccion = 'COMPRA', $tipoitem = 'productos')
+    {
+        // Los servicios no requieren cálculo de kardex (no manejan inventario)
+        if ($tipoitem === 'servicios') {
+            return [
+                'saldo_final' => 0,
+                'costo_promedio' => 0,
+                'valor_final' => 0
+            ];
+        }
+
+        // PASO 1: Obtener el último registro de kardex para este artículo
+        // Consulta optimizada que obtiene solo los campos necesarios del último movimiento
+        $sql_ultimo = "SELECT saldo_final, costo_2 as costo_promedio
+                       FROM kardex
+                       WHERE idarticulo = ?
+                       ORDER BY idkardex DESC
+                       LIMIT 1";
+
+        $result = ejecutarConsultaPreparada($sql_ultimo, "i", [$idarticulo]);
+
+        // Valores iniciales si no existe historial de kardex
+        $saldo_anterior = 0;
+        $costo_anterior = 0;
+
+        if ($result && $row = $result->fetch_object()) {
+            $saldo_anterior = (float) $row->saldo_final;
+            $costo_anterior = (float) $row->costo_promedio;
+        } else {
+            // Si no hay kardex anterior, obtener datos iniciales del artículo
+            $sql_articulo = "SELECT saldo_finu as stock, precio_final_kardex as costo
+                             FROM articulo
+                             WHERE idarticulo = ?";
+            $result_art = ejecutarConsultaPreparada($sql_articulo, "i", [$idarticulo]);
+
+            if ($result_art && $row_art = $result_art->fetch_object()) {
+                $saldo_anterior = (float) $row_art->stock;
+                $costo_anterior = (float) $row_art->costo;
+            }
+        }
+
+        // PASO 2: Calcular valores según tipo de transacción
+        $saldo_final = 0;
+        $costo_promedio = 0;
+        $valor_final = 0;
+
+        if (strtoupper($tipo_transaccion) === 'COMPRA') {
+            // LÓGICA PARA COMPRAS (incrementa inventario)
+            // Fórmula: Nuevo saldo = saldo anterior + cantidad comprada
+            $saldo_final = $saldo_anterior + $cantidad;
+
+            // Fórmula de Promedio Ponderado:
+            // Costo Promedio = (Valor anterior + Valor nueva compra) / Saldo total
+            // Valor anterior = saldo_anterior * costo_anterior
+            // Valor nueva compra = cantidad * costo_unitario
+            if ($saldo_final > 0) {
+                $valor_anterior = $saldo_anterior * $costo_anterior;
+                $valor_nueva_compra = $cantidad * $costo_unitario;
+                $costo_promedio = ($valor_anterior + $valor_nueva_compra) / $saldo_final;
+            } else {
+                $costo_promedio = $costo_unitario;
+            }
+
+            // Valor final = saldo total * costo promedio
+            $valor_final = $saldo_final * $costo_promedio;
+
+        } elseif (strtoupper($tipo_transaccion) === 'VENTA') {
+            // LÓGICA PARA VENTAS (reduce inventario)
+            // Fórmula: Nuevo saldo = saldo anterior - cantidad vendida
+            $saldo_final = $saldo_anterior - $cantidad;
+
+            // En ventas, el costo promedio NO cambia (se mantiene del inventario existente)
+            $costo_promedio = $costo_anterior;
+
+            // Valor final = saldo restante * costo promedio
+            $valor_final = $saldo_final * $costo_promedio;
+        }
+
+        // PASO 3: Retornar valores calculados
+        return [
+            'saldo_final' => round($saldo_final, 2),
+            'costo_promedio' => round($costo_promedio, 5),  // 5 decimales para mayor precisión
+            'valor_final' => round($valor_final, 2)
+        ];
+    }
+
     //Implementamos un método para desactivar registros
 
     public function desactivar($idarticulo)
@@ -234,22 +404,22 @@ class Articulo
 
     //Implementar un método para listar los registros
 
-    public function listar($idempresa)
+    public function listar($idempresa, $filtro_almacen = "", $filtro_estado = "")
     {
 
-        $sql = "select 
-        a.idarticulo, 
-        f.idfamilia, 
-        a.codigo_proveedor, 
-        a.codigo, 
-        f.descripcion as familia, 
-        left(a.nombre, 50) as nombre, 
-        format(a.stock,2) as stock, 
-        a.precio_venta as precio, 
+        $sql = "select
+        a.idarticulo,
+        f.idfamilia,
+        a.codigo_proveedor,
+        a.codigo,
+        f.descripcion as familia,
+        left(a.nombre, 50) as nombre,
+        format(a.stock,2) as stock,
+        a.precio_venta as precio,
         a.costo_compra,
         a.marca,
-        a.imagen, 
-        a.estado, 
+        a.imagen,
+        a.estado,
         a.precio_final_kardex,
         a.unidad_medida,
         a.ccontable,
@@ -258,11 +428,21 @@ class Articulo
         date_format(a.fechavencimiento, '%d/%m/%Y') as fechavencimiento,
         al.nombre as nombreal
 
-        from 
+        from
 
         articulo a inner join familia f on a.idfamilia=f.idfamilia inner join almacen al on a.idalmacen=al.idalmacen inner join empresa e on al.idempresa=e.idempresa inner join umedida um on a.umedidacompra=um.idunidad and a.tipoitem='productos'
-         where 
+         where
          not a.nombre='1000ncdg' and e.idempresa='$idempresa' and al.estado='1'";
+
+        // Agregar filtro por almacén si se proporciona
+        if (!empty($filtro_almacen)) {
+            $sql .= " and al.idalmacen='$filtro_almacen'";
+        }
+
+        // Agregar filtro por estado si se proporciona
+        if (!empty($filtro_estado)) {
+            $sql .= " and a.estado='$filtro_estado'";
+        }
 
         return ejecutarConsulta($sql);
 

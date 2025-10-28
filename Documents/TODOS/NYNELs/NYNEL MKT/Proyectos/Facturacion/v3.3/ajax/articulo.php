@@ -406,6 +406,30 @@ switch ($_GET["op"]) {
 			exit();
 		}
 
+		// Manejar carga de imagen
+		$imagennarticulo = '';
+		if (isset($_FILES['imagennarticulo']) && !empty($_FILES['imagennarticulo']['tmp_name'])) {
+			if (is_uploaded_file($_FILES['imagennarticulo']['tmp_name'])) {
+				// SEGURIDAD: Validar imagen con validación fuerte
+				$imagen_validada = validarImagenSubida($_FILES['imagennarticulo']);
+
+				if ($imagen_validada === false) {
+					echo "Error: Imagen inválida. Solo se permiten JPG, PNG y WEBP de máximo 2MB";
+					exit();
+				}
+
+				// Usar nombre seguro generado
+				$imagennarticulo = $imagen_validada['nombre_seguro'];
+
+				// Mover archivo con nombre seguro
+				if (!move_uploaded_file($imagen_validada['tmp_name'], $rutaimagen . $imagennarticulo)) {
+					error_log("Error al mover archivo de imagen: " . $rutaimagen . $imagennarticulo);
+					echo "Error al guardar la imagen";
+					exit();
+				}
+			}
+		}
+
 		if (empty($idarticulo)) {
 			$rspta = $articulo->insertar(
 				$idalmacennarticulo,
@@ -425,8 +449,7 @@ switch ($_GET["op"]) {
 				'',
 				'',
 				$precioventanarticulo,
-				'',
-				//VA IMAGEN
+				$imagennarticulo,  // IMAGEN CARGADA
 				'',
 				'',
 				$precioventanarticulo,
@@ -658,7 +681,12 @@ switch ($_GET["op"]) {
 	case 'listar':
 
 		$idempresa = "1";
-		$rspta = $articulo->listar($idempresa);
+
+		// Obtener filtros desde AJAX
+		$filtro_almacen = isset($_GET['filtro_almacen']) ? limpiarCadena($_GET['filtro_almacen']) : "";
+		$filtro_estado = isset($_GET['filtro_estado']) ? limpiarCadena($_GET['filtro_estado']) : "";
+
+		$rspta = $articulo->listar($idempresa, $filtro_almacen, $filtro_estado);
 		$url = '../reportes/printbarcode.php?codigopr=';
 		//Vamos a declarar un array
 

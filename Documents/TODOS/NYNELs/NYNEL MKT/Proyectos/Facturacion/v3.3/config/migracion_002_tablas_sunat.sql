@@ -24,7 +24,7 @@ ADD INDEX `idx_tipo_documento` (`tipo_documento`);
 -- 1.3 Agregar campos SUNAT a tabla DETALLE_COMPRA_PRODUCTO
 ALTER TABLE `detalle_compra_producto`
 ADD COLUMN `descripcion_producto` VARCHAR(500) DEFAULT NULL COMMENT 'Descripción del producto comprado' AFTER `idarticulo`,
-ADD COLUMN `unidad_medida_sunat` VARCHAR(3) DEFAULT NULL COMMENT 'Código SUNAT de unidad de medida (Catálogo 03)' AFTER `subtotal_$`,
+ADD COLUMN `unidad_medida_sunat` VARCHAR(3) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Código SUNAT de unidad de medida (Catálogo 03)' AFTER `subtotal`,
 ADD COLUMN `codigo_producto` VARCHAR(50) DEFAULT NULL COMMENT 'Código del producto' AFTER `descripcion_producto`;
 
 -- 1.4 Crear FK a nueva tabla umedida_sunat
@@ -37,8 +37,8 @@ ON UPDATE CASCADE ON DELETE SET NULL;
 -- 1.5 Modificar tabla ARTICULO para usar código SUNAT
 -- Primero agregar nueva columna
 ALTER TABLE `articulo`
-ADD COLUMN `unidad_medida_compra_sunat` VARCHAR(3) DEFAULT NULL COMMENT 'Unidad de medida SUNAT para compras' AFTER `unidad_medida`,
-ADD COLUMN `unidad_medida_venta_sunat` VARCHAR(3) DEFAULT NULL COMMENT 'Unidad de medida SUNAT para ventas' AFTER `unidad_medida_compra_sunat`;
+ADD COLUMN `unidad_medida_compra_sunat` VARCHAR(3) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Unidad de medida SUNAT para compras' AFTER `unidad_medida`,
+ADD COLUMN `unidad_medida_venta_sunat` VARCHAR(3) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Unidad de medida SUNAT para ventas' AFTER `unidad_medida_compra_sunat`;
 
 -- Crear FKs a umedida_sunat
 ALTER TABLE `articulo`

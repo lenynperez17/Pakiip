@@ -35,9 +35,15 @@ Class Compra
      * @param string $hora Hora de la compra
      * @param string $moneda Moneda (PEN o USD)
      * @param int $idempresa ID de la empresa
+     * @param int $idalmacen ID del almacén destino (NUEVO CAMPO)
+     * @param string $ruc_emisor RUC del proveedor emisor (CAMPO SUNAT)
+     * @param string $descripcion_compra Descripción general de la compra (CAMPO SUNAT)
+     * @param array $codigo_producto Array de códigos de producto según comprobante (CAMPO SUNAT DETALLE)
+     * @param array $descripcion_producto Array de descripciones según comprobante (CAMPO SUNAT DETALLE)
+     * @param array $unidad_medida_sunat Array de UM SUNAT Catálogo 03 (CAMPO SUNAT DETALLE)
      * @return int|false ID de la compra creada o false si falla
      */
-    public function insertar($idusuario, $idproveedor, $fecha_emision, $tipo_comprobante, $serie_comprobante, $num_comprobante, $guia, $subtotal_compra, $total_igv, $total_compra, $idarticulo, $valor_unitario,  $cantidad, $subtotalBD,  $codigo, $unidad_medida, $tcambio, $hora, $moneda, $idempresa)
+    public function insertar($idusuario, $idproveedor, $fecha_emision, $tipo_comprobante, $serie_comprobante, $num_comprobante, $guia, $subtotal_compra, $total_igv, $total_compra, $idarticulo, $valor_unitario,  $cantidad, $subtotalBD,  $codigo, $unidad_medida, $tcambio, $hora, $moneda, $idempresa, $idalmacen = null, $ruc_emisor = "", $descripcion_compra = "", $codigo_producto = [], $descripcion_producto = [], $unidad_medida_sunat = [])
     {
         global $conexion;
 
@@ -50,8 +56,9 @@ Class Compra
 
             $sql_compra = "INSERT INTO compra (
                 idusuario, idproveedor, fecha, tipo_documento, serie, numero, guia,
-                subtotal, igv, total, subtotal_$, igv_$, total_$, tcambio, moneda, idempresa
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '0', '0', '0', ?, ?, ?)";
+                subtotal, igv, total, subtotal_$, igv_$, total_$, tcambio, moneda, idempresa,
+                idalmacen, ruc_emisor, fecha_emision, descripcion_compra
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '0', '0', '0', ?, ?, ?, ?, ?, ?, ?)";
 
             $stmt_compra = $conexion->prepare($sql_compra);
             if (!$stmt_compra) {
@@ -61,10 +68,11 @@ Class Compra
             }
 
             $stmt_compra->bind_param(
-                "iisssssddddsi",
+                "iisssssddddsisissss",
                 $idusuario, $idproveedor, $fecha_completa, $tipo_comprobante,
                 $serie_comprobante, $num_comprobante, $guia, $subtotal_compra,
-                $total_igv, $total_compra, $tcambio, $moneda, $idempresa
+                $total_igv, $total_compra, $tcambio, $moneda, $idempresa,
+                $idalmacen, $ruc_emisor, $fecha_emision, $descripcion_compra
             );
 
             if (!$stmt_compra->execute()) {
@@ -92,10 +100,17 @@ Class Compra
                 $unidad_medida_actual = $unidad_medida[$num_elementos];
                 $numero_doc = $serie_comprobante . '-' . $num_comprobante;
 
-                // PASO 2.1: Insertar detalle de compra
+                // ========== CAPTURAR CAMPOS SUNAT DETALLE ==========
+                $cod_producto = isset($codigo_producto[$num_elementos]) ? $codigo_producto[$num_elementos] : "";
+                $desc_producto = isset($descripcion_producto[$num_elementos]) ? $descripcion_producto[$num_elementos] : "";
+                $um_sunat = isset($unidad_medida_sunat[$num_elementos]) ? $unidad_medida_sunat[$num_elementos] : "";
+                // ===================================================
+
+                // PASO 2.1: Insertar detalle de compra CON CAMPOS SUNAT
                 $sql_detalle = "INSERT INTO detalle_compra_producto (
-                    idcompra, idarticulo, valor_unitario, cantidad, subtotal, valor_unitario_$, subtotal_$
-                ) VALUES (?, ?, ?, ?, valor_unitario * ?, '0', '0')";
+                    idcompra, idarticulo, valor_unitario, cantidad, subtotal, valor_unitario_$, subtotal_$,
+                    codigo_producto, descripcion_producto, unidad_medida_sunat
+                ) VALUES (?, ?, ?, ?, valor_unitario * ?, '0', '0', ?, ?, ?)";
 
                 $stmt_detalle = $conexion->prepare($sql_detalle);
                 if (!$stmt_detalle) {
@@ -104,7 +119,7 @@ Class Compra
                     return false;
                 }
 
-                $stmt_detalle->bind_param("iiddd", $idcompranew, $idarticulo_actual, $valor_unitario_actual, $cantidad_actual, $cantidad_actual);
+                $stmt_detalle->bind_param("iidddsss", $idcompranew, $idarticulo_actual, $valor_unitario_actual, $cantidad_actual, $cantidad_actual, $cod_producto, $desc_producto, $um_sunat);
 
                 if (!$stmt_detalle->execute()) {
                     error_log("Error ejecutando INSERT detalle: " . $stmt_detalle->error);
@@ -114,18 +129,23 @@ Class Compra
                 }
                 $stmt_detalle->close();
 
-                // PASO 2.2: Insertar en kardex con subconsultas para cálculos
+                // CÁLCULO AUTOMÁTICO DE VALORES KARDEX (Promedio Ponderado)
+                require_once "Articulo.php";
+                $articulo_kardex = new Articulo();
+                $valores_kardex = $articulo_kardex->calcularValoresKardex(
+                    $idarticulo_actual,
+                    $cantidad_actual,
+                    $valor_unitario_actual,
+                    'COMPRA',
+                    'productos'  // Compras siempre son productos físicos
+                );
+
+                // PASO 2.2: Insertar en kardex con valores calculados
                 $sql_kardex = "INSERT INTO kardex (
                     idcomprobante, idarticulo, transaccion, codigo, fecha, tipo_documento,
                     numero_doc, cantidad, costo_1, unidad_medida, saldo_final, costo_2,
                     valor_final, idempresa, tcambio, moneda
-                ) VALUES (
-                    ?, ?, 'COMPRA', ?, ?, ?, ?, ?, ?, ?,
-                    (SELECT saldo_finu + ? FROM articulo WHERE idarticulo = ?),
-                    (SELECT (saldo_finu * precio_final_kardex + (? * ?)) / (saldo_finu + ?) FROM articulo WHERE idarticulo = ?),
-                    saldo_final * costo_2,
-                    ?, ?, ?
-                )";
+                ) VALUES (?, ?, 'COMPRA', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
                 $stmt_kardex = $conexion->prepare($sql_kardex);
                 if (!$stmt_kardex) {
@@ -135,12 +155,22 @@ Class Compra
                 }
 
                 $stmt_kardex->bind_param(
-                    "iissssddsdiiddiids",
-                    $idcompranew, $idarticulo_actual, $codigo_actual, $fecha_emision,
-                    $tipo_comprobante, $numero_doc, $cantidad_actual, $valor_unitario_actual,
-                    $unidad_medida_actual, $cantidad_actual, $idarticulo_actual,
-                    $valor_unitario_actual, $cantidad_actual, $cantidad_actual, $idarticulo_actual,
-                    $idempresa, $tcambio, $moneda
+                    "iissssddsdddiis",
+                    $idcompranew,
+                    $idarticulo_actual,
+                    $codigo_actual,
+                    $fecha_emision,
+                    $tipo_comprobante,
+                    $numero_doc,
+                    $cantidad_actual,
+                    $valor_unitario_actual,
+                    $unidad_medida_actual,
+                    $valores_kardex['saldo_final'],      // CALCULADO: stock después de compra
+                    $valores_kardex['costo_promedio'],   // CALCULADO: costo promedio ponderado
+                    $valores_kardex['valor_final'],      // CALCULADO: valor total del inventario
+                    $idempresa,
+                    $tcambio,
+                    $moneda
                 );
 
                 if (!$stmt_kardex->execute()) {
@@ -225,6 +255,11 @@ Class Compra
      * @param float $totalcostounitario Total costo unitario
      * @param float $vunitario Valor unitario
      * @param float $factorc Factor de conversión
+     * @param string $ruc_emisor RUC del proveedor emisor (CAMPO SUNAT)
+     * @param string $descripcion_compra Descripción general (CAMPO SUNAT)
+     * @param array $codigo_producto Array de códigos de producto según comprobante (CAMPO SUNAT DETALLE)
+     * @param array $descripcion_producto Array de descripciones según comprobante (CAMPO SUNAT DETALLE)
+     * @param array $unidad_medida_sunat Array de UM SUNAT Catálogo 03 (CAMPO SUNAT DETALLE)
      * @return int|false ID de la compra creada o false si falla
      */
     public function insertarsubarticulo(
@@ -232,7 +267,8 @@ Class Compra
         $num_comprobante, $guia, $subtotal_compra, $total_igv, $total_compra, $idarticulo,
         $valor_unitario, $cantidad, $subtotalBD, $codigo, $unidad_medida, $tcambio, $hora,
         $moneda, $idempresa, $codigobarra, $idarticulonarti, $totalcantidad,
-        $totalcostounitario, $vunitario, $factorc)
+        $totalcostounitario, $vunitario, $factorc, $idalmacen = null, $ruc_emisor = "", $descripcion_compra = "",
+        $codigo_producto = [], $descripcion_producto = [], $unidad_medida_sunat = [])
     {
         global $conexion;
 
@@ -245,8 +281,9 @@ Class Compra
 
             $sql_compra = "INSERT INTO compra (
                 idusuario, idproveedor, fecha, tipo_documento, serie, numero, guia,
-                subtotal, igv, total, subtotal_$, igv_$, total_$, tcambio, moneda, idempresa
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '0', '0', '0', ?, ?, ?)";
+                subtotal, igv, total, subtotal_$, igv_$, total_$, tcambio, moneda, idempresa,
+                idalmacen, ruc_emisor, fecha_emision, descripcion_compra
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, '0', '0', '0', ?, ?, ?, ?, ?, ?, ?)";
 
             $stmt_compra = $conexion->prepare($sql_compra);
             if (!$stmt_compra) {
@@ -256,10 +293,11 @@ Class Compra
             }
 
             $stmt_compra->bind_param(
-                "iisssssddddsi",
+                "iisssssddddsisissss",
                 $idusuario, $idproveedor, $fecha_completa, $tipo_comprobante,
                 $serie_comprobante, $num_comprobante, $guia, $subtotal_compra,
-                $total_igv, $total_compra, $tcambio, $moneda, $idempresa
+                $total_igv, $total_compra, $tcambio, $moneda, $idempresa,
+                $idalmacen, $ruc_emisor, $fecha_emision, $descripcion_compra
             );
 
             if (!$stmt_compra->execute()) {
@@ -335,12 +373,23 @@ Class Compra
                 }
                 $stmt_subartículo->close();
 
-                // PASO 3.2: Insertar en kardex (con valores en 0 para saldo_final, costo_2, valor_final)
+                // CÁLCULO AUTOMÁTICO DE VALORES KARDEX (Promedio Ponderado) para subartículos
+                require_once "Articulo.php";
+                $articulo_kardex = new Articulo();
+                $valores_kardex = $articulo_kardex->calcularValoresKardex(
+                    $idarticulo_actual,
+                    $cantidad_factorc,  // Cantidad con factor de conversión aplicado
+                    $valor_unitario_actual,
+                    'COMPRA',
+                    'productos'
+                );
+
+                // PASO 3.2: Insertar en kardex con valores calculados
                 $sql_kardex = "INSERT INTO kardex (
                     idcomprobante, idarticulo, transaccion, codigo, fecha, tipo_documento,
                     numero_doc, cantidad, costo_1, unidad_medida, saldo_final, costo_2,
                     valor_final, idempresa, tcambio, moneda
-                ) VALUES (?, ?, 'COMPRA', ?, ?, ?, ?, ?, ?, ?, '0', '0', '0', ?, ?, ?)";
+                ) VALUES (?, ?, 'COMPRA', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
                 $stmt_kardex = $conexion->prepare($sql_kardex);
                 if (!$stmt_kardex) {
@@ -350,10 +399,22 @@ Class Compra
                 }
 
                 $stmt_kardex->bind_param(
-                    "iissssddsiids",
-                    $idcompranew, $idarticulo_actual, $codigo_actual, $fecha_emision,
-                    $tipo_comprobante, $numero_doc, $cantidad_factorc, $valor_unitario_actual,
-                    $unidad_medida_actual, $idempresa, $tcambio, $moneda
+                    "iissssddsdddiis",
+                    $idcompranew,
+                    $idarticulo_actual,
+                    $codigo_actual,
+                    $fecha_emision,
+                    $tipo_comprobante,
+                    $numero_doc,
+                    $cantidad_factorc,
+                    $valor_unitario_actual,
+                    $unidad_medida_actual,
+                    $valores_kardex['saldo_final'],      // CALCULADO: stock después de compra
+                    $valores_kardex['costo_promedio'],   // CALCULADO: costo promedio ponderado
+                    $valores_kardex['valor_final'],      // CALCULADO: valor total del inventario
+                    $idempresa,
+                    $tcambio,
+                    $moneda
                 );
 
                 if (!$stmt_kardex->execute()) {

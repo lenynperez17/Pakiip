@@ -203,6 +203,22 @@ class Boleta
 
         $total_items = count($idarticulo);
         for ($num_elementos = 0; $num_elementos < $total_items; $num_elementos++) {
+          // VALIDACIÓN DE STOCK: Verificar disponibilidad ANTES de procesar la venta
+          require_once "Articulo.php";
+          $articulo_validator = new Articulo();
+          $validacion = $articulo_validator->validarStockDisponible(
+            $idarticulo[$num_elementos],
+            $cantidadreal[$num_elementos],
+            $tipoboleta
+          );
+
+          if (!$validacion['valido']) {
+            $this->lastError = $validacion['mensaje'];
+            error_log("STOCK INSUFICIENTE: " . $validacion['mensaje']);
+            mysqli_rollback($conexion);
+            return false;
+          }
+
           // INSERT detalle_boleta_producto con prepared statement
           $sql_detalle = "INSERT INTO detalle_boleta_producto (
             idboleta, idarticulo, numero_orden_item_29, cantidad_item_12, codigo_precio_14_1,
@@ -257,21 +273,57 @@ class Boleta
           }
           $stmt_det->close();
 
-          // INSERT kardex con prepared statement (comentado en original pero preparado)
-          /* $sql_kardex = "INSERT INTO kardex (
+          // CÁLCULO AUTOMÁTICO DE VALORES KARDEX (Promedio Ponderado)
+          require_once "Articulo.php";
+          $articulo_kardex = new Articulo();
+          $valores_kardex = $articulo_kardex->calcularValoresKardex(
+            $idarticulo[$num_elementos],
+            $cantidadreal[$num_elementos],
+            $vvu[$num_elementos],
+            'VENTA',
+            $tipoboleta
+          );
+
+          // INSERT kardex con prepared statement para trazabilidad de inventario
+          $sql_kardex = "INSERT INTO kardex (
             idcomprobante, idarticulo, transaccion, codigo, fecha, tipo_documento,
             numero_doc, cantidad, costo_1, unidad_medida, saldo_final, costo_2,
             valor_final, idempresa, tcambio, moneda
-          ) VALUES (?, ?, 'VENTA', ?, ?, '03', ?, ?, ?, ?, '', '', '', ?, ?, ?)";
+          ) VALUES (?, ?, 'VENTA', ?, ?, '03', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
           $stmt_kar = $conexion->prepare($sql_kardex);
-          $stmt_kar->bind_param("iissssssiss",
-            $idBoletaNew, $idarticulo[$num_elementos], $codigo[$num_elementos],
-            $fecha_emision_01, $numeracion_completa, $cantidadreal[$num_elementos],
-            $vvu[$num_elementos], $unidad_medida[$num_elementos], $idempresa,
-            $tcambio, $tipo_moneda_24);
-          $stmt_kar->execute();
-          $stmt_kar->close(); */
+          if (!$stmt_kar) {
+            $this->lastError = $conexion->error;
+            error_log("Error preparando INSERT kardex: " . $conexion->error);
+            mysqli_rollback($conexion);
+            return false;
+          }
+
+          $stmt_kar->bind_param("iissssdsdddiss",
+            $idBoletaNew,
+            $idarticulo[$num_elementos],
+            $codigo[$num_elementos],
+            $fecha_emision_01,
+            $numeracion_completa,
+            $cantidadreal[$num_elementos],
+            $vvu[$num_elementos],
+            $unidad_medida[$num_elementos],
+            $valores_kardex['saldo_final'],
+            $valores_kardex['costo_promedio'],
+            $valores_kardex['valor_final'],
+            $idempresa,
+            $tcambio,
+            $tipo_moneda_24
+          );
+
+          if (!$stmt_kar->execute()) {
+            $this->lastError = $stmt_kar->error;
+            error_log("Error ejecutando INSERT kardex: " . $stmt_kar->error);
+            $stmt_kar->close();
+            mysqli_rollback($conexion);
+            return false;
+          }
+          $stmt_kar->close();
 
           // UPDATE persona con prepared statement (solo una vez, no en loop)
           if ($num_elementos == 0) {

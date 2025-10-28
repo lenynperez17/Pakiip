@@ -10,11 +10,11 @@ Class Almacen
 
 	}
 
-	public function insertaralmacen($nombre, $direc, $idempresa)
+	public function insertaralmacen($nombre, $direc, $idempresa, $telefono = null, $email = null, $idusuario_responsable = null, $tipo_almacen = 'SECUNDARIO', $capacidad_max = null, $notas = null)
 	{
 		global $conexion;
 
-		$sql = "INSERT INTO almacen (nombre, direccion, idempresa) VALUES (?, ?, ?)";
+		$sql = "INSERT INTO almacen (nombre, direccion, idempresa, telefono, email, idusuario_responsable, tipo_almacen, capacidad_max, notas) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
 		$stmt = $conexion->prepare($sql);
 		if (!$stmt) {
@@ -22,7 +22,7 @@ Class Almacen
 			return false;
 		}
 
-		$stmt->bind_param("ssi", $nombre, $direc, $idempresa);
+		$stmt->bind_param("ssissisis", $nombre, $direc, $idempresa, $telefono, $email, $idusuario_responsable, $tipo_almacen, $capacidad_max, $notas);
 
 		$resultado = $stmt->execute();
 		$stmt->close();
@@ -31,11 +31,11 @@ Class Almacen
 	}
 
 	//Implementamos un método para editar registros
-	public function editar($idalmacen, $nombre, $direccion)
+	public function editar($idalmacen, $nombre, $direccion, $telefono = null, $email = null, $idusuario_responsable = null, $tipo_almacen = 'SECUNDARIO', $capacidad_max = null, $notas = null)
 	{
 		global $conexion;
 
-		$sql = "UPDATE almacen SET nombre = ?, direccion = ? WHERE idalmacen = ?";
+		$sql = "UPDATE almacen SET nombre = ?, direccion = ?, telefono = ?, email = ?, idusuario_responsable = ?, tipo_almacen = ?, capacidad_max = ?, notas = ? WHERE idalmacen = ?";
 
 		$stmt = $conexion->prepare($sql);
 		if (!$stmt) {
@@ -43,7 +43,7 @@ Class Almacen
 			return false;
 		}
 
-		$stmt->bind_param("ssi", $nombre, $direccion, $idalmacen);
+		$stmt->bind_param("sssisisii", $nombre, $direccion, $telefono, $email, $idusuario_responsable, $tipo_almacen, $capacidad_max, $notas, $idalmacen);
 
 		$resultado = $stmt->execute();
 		$stmt->close();
@@ -142,7 +142,16 @@ Class Almacen
 	{
 		global $conexion;
 
-		$sql = "SELECT * FROM almacen ORDER BY idalmacen";
+		$sql = "SELECT
+					a.*,
+					u.nombre as responsable_nombre,
+					COUNT(DISTINCT ar.idarticulo) as total_productos,
+					COALESCE(SUM(ar.stock * ar.precio_venta), 0) as valor_inventario
+				FROM almacen a
+				LEFT JOIN usuario u ON a.idusuario_responsable = u.idusuario
+				LEFT JOIN articulo ar ON a.idalmacen = ar.idalmacen AND ar.estado = 1
+				GROUP BY a.idalmacen
+				ORDER BY a.idalmacen";
 
 		$resultado = $conexion->query($sql);
 
@@ -196,6 +205,112 @@ Class Almacen
 		$sql = "SELECT * FROM almacen WHERE NOT idalmacen = '1' ORDER BY idalmacen";
 
 		$resultado = $conexion->query($sql);
+
+		return $resultado;
+	}
+
+	// Obtener estadísticas generales de almacenes
+	public function obtenerEstadisticas()
+	{
+		global $conexion;
+
+		$sql = "SELECT
+					COUNT(DISTINCT a.idalmacen) as total_almacenes,
+					COUNT(DISTINCT CASE WHEN a.estado = 1 THEN a.idalmacen END) as almacenes_activos,
+					COUNT(DISTINCT CASE WHEN a.estado = 0 THEN a.idalmacen END) as almacenes_inactivos,
+					COUNT(DISTINCT ar.idarticulo) as total_productos,
+					COALESCE(SUM(ar.stock * ar.precio_venta), 0) as valor_total_inventario,
+					COUNT(DISTINCT CASE WHEN a.tipo_almacen = 'PRINCIPAL' THEN a.idalmacen END) as almacenes_principales,
+					COUNT(DISTINCT CASE WHEN a.tipo_almacen = 'SECUNDARIO' THEN a.idalmacen END) as almacenes_secundarios,
+					COUNT(DISTINCT CASE WHEN a.tipo_almacen = 'TEMPORAL' THEN a.idalmacen END) as almacenes_temporales
+				FROM almacen a
+				LEFT JOIN articulo ar ON a.idalmacen = ar.idalmacen AND ar.estado = 1";
+
+		$resultado = $conexion->query($sql);
+
+		return $resultado;
+	}
+
+	// Obtener lista de usuarios para select de responsables
+	public function obtenerUsuariosResponsables()
+	{
+		global $conexion;
+
+		$sql = "SELECT idusuario, nombre, login
+				FROM usuario
+				WHERE condicion = 1
+				ORDER BY nombre ASC";
+
+		$resultado = $conexion->query($sql);
+
+		return $resultado;
+	}
+
+	// Listar productos por almacén con detalles completos
+	public function listarProductosPorAlmacen($idalmacen)
+	{
+		global $conexion;
+
+		$sql = "SELECT
+					a.idarticulo,
+					a.codigo,
+					a.nombre,
+					a.stock,
+					a.precio_venta,
+					a.costo_compra,
+					COALESCE(a.stock * a.precio_venta, 0) as valor_total,
+					u.abre as unidad_medida,
+					alm.nombre as almacen_nombre,
+					alm.direccion as almacen_direccion,
+					a.estado
+				FROM articulo a
+				INNER JOIN umedida u ON a.unidad_medida = u.idunidad
+				INNER JOIN almacen alm ON a.idalmacen = alm.idalmacen
+				WHERE a.idalmacen = ?
+				AND a.estado = 1
+				ORDER BY a.nombre ASC";
+
+		$stmt = $conexion->prepare($sql);
+		if (!$stmt) {
+			error_log("Error preparando listarProductosPorAlmacen: " . $conexion->error);
+			return false;
+		}
+
+		$stmt->bind_param("i", $idalmacen);
+		$stmt->execute();
+
+		$resultado = $stmt->get_result();
+		$stmt->close();
+
+		return $resultado;
+	}
+
+	// Obtener resumen de productos por almacén
+	public function obtenerResumenAlmacen($idalmacen)
+	{
+		global $conexion;
+
+		$sql = "SELECT
+					COUNT(DISTINCT a.idarticulo) as total_productos,
+					COALESCE(SUM(a.stock), 0) as total_unidades,
+					COALESCE(SUM(a.stock * a.precio_venta), 0) as valor_total_inventario,
+					MIN(a.stock) as stock_minimo,
+					MAX(a.stock) as stock_maximo
+				FROM articulo a
+				WHERE a.idalmacen = ?
+				AND a.estado = 1";
+
+		$stmt = $conexion->prepare($sql);
+		if (!$stmt) {
+			error_log("Error preparando obtenerResumenAlmacen: " . $conexion->error);
+			return false;
+		}
+
+		$stmt->bind_param("i", $idalmacen);
+		$stmt->execute();
+
+		$resultado = $stmt->get_result();
+		$stmt->close();
 
 		return $resultado;
 	}

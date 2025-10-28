@@ -118,375 +118,446 @@ class Factura
 
 
 
-  //Implementamos un método para insertar registros para factura
+  //Implementamos un método para insertar registros para factura - REFACTORIZADO CON PREPARED STATEMENTS Y TRANSACCIONES
   public function insertar($idusuario, $fecha_emision, $firma_digital, $idempresa, $tipo_documento, $numeracion, $idcliente, $total_operaciones_gravadas_codigo, $total_operaciones_gravadas_monto, $sumatoria_igv_1, $sumatoria_igv_2, $codigo_tributo_3, $nombre_tributo_4, $codigo_internacional_5, $importe_total_venta, $tipo_documento_guia, $guia_remision_29_2, $codigo_leyenda_1, $descripcion_leyenda_2, $version_ubl, $version_estructura, $tipo_moneda, $tasa_igv, $idarticulo, $numero_orden_item, $cantidad, $codigo_precio, $pvt, $igvBD2, $igvBD3, $afectacion_igv_3, $afectacion_igv_4, $afectacion_igv_5, $afectacion_igv_6, $igvBD, $valor_unitario, $subtotalBD, $codigo, $unidad_medida, $idserie, $SerieReal, $numero_factura, $tipodocuCliente, $rucCliente, $RazonSocial, $hora, $sumadcto, $vendedorsitio, $email, $domicilio_fiscal2, $codigotributo, $tdescuento, $tcambio, $tipopago, $nroreferencia, $ipagado, $saldo, $descdet, $total_icbper, $tipofactura, $cantidadreal, $idcotizacion, $ccuotas, $fechavecredito, $montocuota, $otroscargos, $tadc, $transferencia, $ncuotahiden, $montocuotacre, $fechapago, $fechavenc, $efectivo, $visa, $yape, $plin, $mastercard, $deposito)
   {
+    global $conexion;
 
-    $st = '1';
-    if ($SerieReal == '0001' || $SerieReal == '0002') {
-      $st = '6';
-    }
+    // Iniciar transacción
+    mysqli_begin_transaction($conexion);
 
-    $formapago = '';
-    $montofpago = NULL;
-    $monedafpago = NULL;
-
-    if ($tipopago == 'Contado') {
-      $formapago = 'Contado';
-    } else {
-      $formapago = 'Credito';
-      $montofpago = $importe_total_venta;
-      $monedafpago = $tipo_moneda;
-    }
-
-
-    $montotar = 0;
-    $montotran = 0;
-    if ($tadc == '1') {
-      $montotar = $importe_total_venta;
-    }
-
-    if ($transferencia == '1') {
-      $montotran = $importe_total_venta;
-    }
-
-    $sql = "insert into
-        factura
-         (
-
-            idusuario,
-            fecha_emision_01,
-            firmadigital_02,
-            idempresa,
-            tipo_documento_07,
-            numeracion_08,
-            idcliente,
-            total_operaciones_gravadas_codigo_18_1,
-            total_operaciones_gravadas_monto_18_2,
-            sumatoria_igv_22_1,
-            sumatoria_igv_22_2,
-            codigo_tributo_22_3,
-            nombre_tributo_22_4,
-            codigo_internacional_22_5,
-            importe_total_venta_27,
-            tipo_documento_29_1,
-             guia_remision_29_2,
-             codigo_leyenda_31_1,
-             descripcion_leyenda_31_2,
-             version_ubl_36,
-             version_estructura_37,
-             tipo_moneda_28,
-             tasa_igv,
-             estado,
-             tipodocuCliente,
-             rucCliente,
-             RazonSocial,
-             tdescuento,
-             vendedorsitio,
-             tcambio,
-             tipopago,
-             nroreferencia,
-             ipagado,
-             saldo,
-             DetalleSunat,
-             icbper,
-             tipofactura,
-             formapago,
-             montofpago,
-             monedafpago,
-             ccuotas,
-             fechavecredito,
-             montocuota,
-             otroscargos,
-             tarjetadc,
-             transferencia,
-             montotarjetadc,
-             montotransferencia,
-             fechavenc,
-             efectivo,
-             visa,
-             yape,
-             plin,
-             mastercard,
-             deposito
-
-          )
-          values
-          (
-
-          '$idusuario',
-          '$fecha_emision $hora',
-          '$firma_digital',
-          '$idempresa',
-          '$tipo_documento',
-          '$SerieReal-$numero_factura',
-          '$idcliente',
-          '$total_operaciones_gravadas_codigo',
-          '$total_operaciones_gravadas_monto',
-          '$sumatoria_igv_1',
-          '$sumatoria_igv_2',
-          (select codigo from catalogo5 where codigo='$codigo_tributo_3'),
-          (select descripcion from catalogo5 where codigo='$codigo_tributo_3'),
-          (select unece5153 from catalogo5 where codigo='$codigo_tributo_3'),
-          '$importe_total_venta',
-          " . ($tipo_documento_guia === NULL ? "NULL" : "'$tipo_documento_guia'") . ",
-          " . ($guia_remision_29_2 === NULL ? "NULL" : "'$guia_remision_29_2'") . ",
-          '$codigo_leyenda_1',
-          '$descripcion_leyenda_2',
-          '$version_ubl',
-          '$version_estructura',
-          '$tipo_moneda',
-          '$tasa_igv',
-          '$st',
-          '$tipodocuCliente ',
-          '$rucCliente',
-          '$RazonSocial',
-          '$tdescuento',
-          '$vendedorsitio',
-          " . ($tcambio === NULL ? "NULL" : "'$tcambio'") . ",
-          '$tipopago',
-          '$nroreferencia',
-          " . ($ipagado === NULL ? "NULL" : "'$ipagado'") . ",
-          " . ($saldo === NULL ? "NULL" : "'$saldo'") . ",
-          'Emitido',
-          '$total_icbper',
-          '$tipofactura',
-          '$formapago',
-          " . ($montofpago === NULL ? "NULL" : "'$montofpago'") . ",
-          " . ($monedafpago === NULL ? "NULL" : "'$monedafpago'") . ",
-          " . ($ccuotas === NULL ? "NULL" : "'$ccuotas'") . ",
-          " . ($fechavecredito === NULL ? "NULL" : "'$fechavecredito'") . ",
-          " . ($montocuota === NULL ? "NULL" : "'$montocuota'") . ",
-          " . ($otroscargos === NULL ? "NULL" : "'$otroscargos'") . ",
-          " . ($tadc === NULL ? "NULL" : "'$tadc'") . ",
-          " . ($transferencia === NULL ? "NULL" : "'$transferencia'") . ",
-          '$montotar',
-          '$montotran',
-          " . ($fechavenc === NULL ? "NULL" : "'$fechavenc'") . ",
-          " . ($efectivo === NULL ? "NULL" : "'$efectivo'") . ",
-          " . ($visa === NULL ? "NULL" : "'$visa'") . ",
-          " . ($yape === NULL ? "NULL" : "'$yape'") . ",
-          " . ($plin === NULL ? "NULL" : "'$plin'") . ",
-          " . ($mastercard === NULL ? "NULL" : "'$mastercard'") . ",
-          " . ($deposito === NULL ? "NULL" : "'$deposito'") . "
-        )";
-    //return ejecutarConsulta($sql);
-    $idfacturanew = ejecutarConsulta_retornarID($sql);
-
-    // Capturar error de MySQL si el INSERT falló
-    if ($idfacturanew === false || $idfacturanew === "") {
-        global $conexion;
-        $this->lastError = $conexion->error;
-    }
-
-    $sqlcotizacion = "update cotizacion set nrofactura=(select numeracion_08 from factura where idfactura='$idfacturanew'),
-        estado='5'
-        where idcotizacion='$idcotizacion' ";
-    ejecutarConsulta($sqlcotizacion);
-
-    $sw = true;
-
-
-    // SI EL NUMERO DE COMPROBANTE YA EXISTE NO HARA LA OPERACIon
-    if ($idfacturanew == "") {
-      $sw = false;
-      $idserie = "";
-    } else {
-      //====================================================
-      $num_elementos = 0;
-      while ($num_elementos < count($idarticulo)) {
-
-        //Guardar en Detalle
-        $sql_detalle = "insert into
-        detalle_fac_art
-        (
-        idfactura,
-        idarticulo,
-        numero_orden_item_33,
-        cantidad_item_12,
-        codigo_precio_15_1,
-        precio_venta_item_15_2,
-        afectacion_igv_item_16_1,
-        afectacion_igv_item_16_2,
-        afectacion_igv_item_16_3,
-        afectacion_igv_item_16_4,
-        afectacion_igv_item_16_5,
-        afectacion_igv_item_16_6,
-        igv_item,
-        valor_uni_item_14,
-        valor_venta_item_21,
-        dcto_item,
-        descdet,
-        umedida
-        )
-          values
-          (
-          '$idfacturanew',
-          '$idarticulo[$num_elementos]',
-          '$numero_orden_item[$num_elementos]',
-          '$cantidad[$num_elementos]',
-          '$codigo_precio',
-          '$valor_unitario[$num_elementos]',
-          '$igvBD2[$num_elementos]',
-          '$igvBD3[$num_elementos]',
-          (select codigo from catalogo7 where codigo='$afectacion_igv_3[$num_elementos]'),
-          (select codigo from catalogo5 where codigo='$afectacion_igv_4[$num_elementos]'),
-          (select descripcion from catalogo5 where codigo='$afectacion_igv_4[$num_elementos]'),
-          (select unece5153 from catalogo5 where codigo='$afectacion_igv_4[$num_elementos]'),
-          '$igvBD[$num_elementos]',
-          '$pvt[$num_elementos]',
-          '$subtotalBD[$num_elementos]',
-          '$sumadcto[$num_elementos]',
-          '$descdet[$num_elementos]',
-          '$unidad_medida[$num_elementos]'
-        )";
-
-        //Guardar en Kardex
-        $sql_kardex = "insert into kardex
-            (
-            idcomprobante,
-            idarticulo,
-            transaccion,
-            codigo,
-            fecha,
-            tipo_documento,
-            numero_doc,
-            cantidad,
-            costo_1,
-            unidad_medida,
-            saldo_final,
-            costo_2,
-            valor_final,
-            idempresa,
-            tcambio,
-            moneda
-            )
-            values
-            (
-            '$idfacturanew',
-            '$idarticulo[$num_elementos]',
-            'VENTA',
-            '$codigo[$num_elementos]',
-            '$fecha_emision' ,
-            '$tipo_documento',
-            '$SerieReal-$numero_factura',
-            '$cantidadreal[$num_elementos]',
-            '$pvt[$num_elementos]',
-            '$unidad_medida[$num_elementos]',
-            (select saldo_finu - '$cantidad[$num_elementos]' from articulo where idarticulo='$idarticulo[$num_elementos]') ,
-            (select precio_final_kardex from articulo where idarticulo='$idarticulo[$num_elementos]'), saldo_final * costo_2,
-            '$idempresa',
-            " . ($tcambio === NULL ? "NULL" : "'$tcambio'") . ",
-            0
-          )";
-
-        $sqlupdatecorreocliente = "update persona set email='$email', domicilio_fiscal='$domicilio_fiscal2', razon_social='$RazonSocial', nombre_comercial='$RazonSocial'   where idpersona='$idcliente'";
-
-        //return ejecutarConsulta($sql);
-        ejecutarConsulta($sql_detalle);
-        ejecutarConsulta($sql_kardex);
-        ejecutarConsulta($sqlupdatecorreocliente);
-
-
-
-        if ($tipofactura != 'servicios') {
-          //ACTUALIZA TABLA ARTICULOS SI ES SERVICIO
-          $sql_update_articulo = "update
-            articulo set saldo_finu = saldo_finu - '$cantidadreal[$num_elementos]',
-            ventast = ventast + '$cantidadreal[$num_elementos]',
-            valor_finu = (saldo_iniu + comprast - ventast) * precio_final_kardex, stock = saldo_finu,
-            valor_fin_kardex=(select valor_final from kardex where idarticulo='$idarticulo[$num_elementos]' and transaccion='VENTA' order by idkardex desc limit 1)
-             where
-             idarticulo = '$idarticulo[$num_elementos]'";
-          ejecutarConsulta($sql_update_articulo);
-        }
-        $num_elementos = $num_elementos + 1;
-      } //Fin While
-
-
-      $sqldetallesesionusuario = "insert into detalle_usuario_sesion
-              (idusuario, tcomprobante, idcomprobante, fechahora)
-               values
-              ('$idusuario', '$tipo_documento','$idfacturanew', now())";
-      ejecutarConsulta($sqldetallesesionusuario);
-
-      if ($tipopago == 'Credito') {
-        $numcuotas = 0;
-        while ($numcuotas < count($ncuotahiden)) {
-          //Guardar en Detalle
-          $sql_detalle_cuota_credito = "insert into
-        cuotas
-        (
-        tipocomprobante,
-        idcomprobante,
-        ncuota,
-        montocuota,
-        fechacuota,
-        estadocuota
-        )
-          values
-          (
-          '$tipo_documento',
-          '$idfacturanew',
-          '$ncuotahiden[$numcuotas]',
-          '$montocuotacre[$numcuotas]',
-          '$fechapago[$numcuotas]',
-          '1'
-        )";
-
-          //return ejecutarConsulta($sql);
-          ejecutarConsulta($sql_detalle_cuota_credito) or $sw = false;
-          $numcuotas = $numcuotas + 1;
-        } //Fin While
-      } else { // SI ES AL CONTADO
-
-        $sql_detalle_cuota_credito = "insert into
-        cuotas
-        (
-        tipocomprobante,
-        idcomprobante,
-        ncuota,
-        montocuota,
-        fechacuota,
-        estadocuota
-        )
-          values
-          (
-          '01',
-          '$idfacturanew',
-          '1',
-          '$importe_total_venta',
-          '$fecha_emision',
-          '0'
-        )";
-        ejecutarConsulta($sql_detalle_cuota_credito) or $sw = false;
+    try {
+      $st = '1';  // Estado inicial: 1 = EMITIDO (STRING para columna estado)
+      if ($SerieReal == '0001' || $SerieReal == '0002') {
+        $st = '6';
       }
 
+      $formapago = '';
+      $montofpago = NULL;
+      $monedafpago = NULL;
 
+      if ($tipopago == 'Contado') {
+        $formapago = 'Contado';
+      } else {
+        $formapago = 'Credito';
+        $montofpago = $importe_total_venta;
+        $monedafpago = $tipo_moneda;
+      }
 
+      $montotar = 0;
+      $montotran = 0;
+      if ($tadc == '1') {
+        $montotar = $importe_total_venta;
+      }
 
+      if ($transferencia == '1') {
+        $montotran = $importe_total_venta;
+      }
 
-    } //Fin IF
+      $fecha_hora_emision = $fecha_emision . ' ' . $hora;
+      $numeracion_completa = $SerieReal . '-' . $numero_factura;
 
-    //Para actualizar numeracion de las series de la factura
-    $sql_update_numeracion = "update
-                  numeracion
-                  set
-                  numero='$numero_factura'
-                  where
-                  idnumeracion='$idserie'";
-    ejecutarConsulta($sql_update_numeracion) or $sw = false;
-    //Fin
+      // INSERT factura con prepared statement
+      $sql = "INSERT INTO factura (
+        idusuario, fecha_emision_01, firmadigital_02, idempresa, tipo_documento_07,
+        numeracion_08, idcliente, total_operaciones_gravadas_codigo_18_1,
+        total_operaciones_gravadas_monto_18_2, sumatoria_igv_22_1, sumatoria_igv_22_2,
+        codigo_tributo_22_3, nombre_tributo_22_4, codigo_internacional_22_5,
+        importe_total_venta_27, tipo_documento_29_1, guia_remision_29_2,
+        codigo_leyenda_31_1, descripcion_leyenda_31_2, version_ubl_36,
+        version_estructura_37, tipo_moneda_28, tasa_igv, estado, tipodocuCliente,
+        rucCliente, RazonSocial, tdescuento, vendedorsitio, tcambio, tipopago,
+        nroreferencia, ipagado, saldo, DetalleSunat, icbper, tipofactura, formapago,
+        montofpago, monedafpago, ccuotas, fechavecredito, montocuota, otroscargos,
+        tarjetadc, transferencia, montotarjetadc, montotransferencia, fechavenc,
+        efectivo, visa, yape, plin, mastercard, deposito
+      ) VALUES (
+        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+        (SELECT codigo FROM catalogo5 WHERE codigo = ?),
+        (SELECT descripcion FROM catalogo5 WHERE codigo = ?),
+        (SELECT unece5153 FROM catalogo5 WHERE codigo = ?),
+        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Emitido',
+        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+      )";
 
+      $stmt = $conexion->prepare($sql);
+      if (!$stmt) {
+        $this->lastError = $conexion->error;
+        error_log("Error preparando INSERT factura: " . $conexion->error);
+        mysqli_rollback($conexion);
+        return false;
+      }
 
+      $stmt->bind_param(
+        "issiisississssssssssssssssssssssssssssssssssssssss",
+        $idusuario, $fecha_hora_emision, $firma_digital, $idempresa, $tipo_documento,
+        $numeracion_completa, $idcliente, $total_operaciones_gravadas_codigo,
+        $total_operaciones_gravadas_monto, $sumatoria_igv_1, $sumatoria_igv_2,
+        $codigo_tributo_3, $codigo_tributo_3, $codigo_tributo_3,
+        $importe_total_venta, $tipo_documento_guia, $guia_remision_29_2,
+        $codigo_leyenda_1, $descripcion_leyenda_2, $version_ubl, $version_estructura,
+        $tipo_moneda, $tasa_igv, $st, $tipodocuCliente, $rucCliente, $RazonSocial,
+        $tdescuento, $vendedorsitio, $tcambio, $tipopago, $nroreferencia, $ipagado,
+        $saldo, $total_icbper, $tipofactura, $formapago, $montofpago, $monedafpago,
+        $ccuotas, $fechavecredito, $montocuota, $otroscargos, $tadc, $transferencia,
+        $montotar, $montotran, $fechavenc, $efectivo, $visa, $yape, $plin,
+        $mastercard, $deposito
+      );
 
-    //================ EXPORTAR COMPROBANTES A TXT =============
+      if (!$stmt->execute()) {
+        $this->lastError = $stmt->error;
+        error_log("Error ejecutando INSERT factura: " . $stmt->error);
+        $stmt->close();
+        mysqli_rollback($conexion);
+        return false;
+      }
 
+      $idfacturanew = $conexion->insert_id;
+      $stmt->close();
 
+      // SI EL NUMERO DE COMPROBANTE YA EXISTE NO HARA LA OPERACION
+      if ($idfacturanew == "") {
+        $this->lastError = "No se pudo obtener el ID de la factura insertada (posible duplicado de numeración)";
+        mysqli_rollback($conexion);
+        return false;
+      }
 
-    return $idfacturanew; //FIN DE LA FUNCION
-//=======================================
+      // UPDATE cotizacion con prepared statement
+      if (!empty($idcotizacion)) {
+        $sql_cotizacion = "UPDATE cotizacion
+          SET nrofactura = (SELECT numeracion_08 FROM factura WHERE idfactura = ?),
+              estado = '5'
+          WHERE idcotizacion = ?";
 
+        $stmt_cot = $conexion->prepare($sql_cotizacion);
+        if (!$stmt_cot) {
+          $this->lastError = $conexion->error;
+          error_log("Error preparando UPDATE cotizacion: " . $conexion->error);
+          mysqli_rollback($conexion);
+          return false;
+        }
+
+        $stmt_cot->bind_param("ii", $idfacturanew, $idcotizacion);
+
+        if (!$stmt_cot->execute()) {
+          $this->lastError = $stmt_cot->error;
+          error_log("Error ejecutando UPDATE cotizacion: " . $stmt_cot->error);
+          $stmt_cot->close();
+          mysqli_rollback($conexion);
+          return false;
+        }
+        $stmt_cot->close();
+      }
+
+      // ============= PROCESAR DETALLES (eliminar while+count bug) =============
+      $total_items = count($idarticulo);
+      for ($num_elementos = 0; $num_elementos < $total_items; $num_elementos++) {
+        // VALIDACIÓN DE STOCK: Verificar disponibilidad ANTES de procesar la venta
+        require_once "Articulo.php";
+        $articulo_validator = new Articulo();
+        $validacion = $articulo_validator->validarStockDisponible(
+          $idarticulo[$num_elementos],
+          $cantidad[$num_elementos],
+          $tipofactura
+        );
+
+        if (!$validacion['valido']) {
+          $this->lastError = $validacion['mensaje'];
+          error_log("STOCK INSUFICIENTE: " . $validacion['mensaje']);
+          mysqli_rollback($conexion);
+          return false;
+        }
+
+        // INSERT detalle_fac_art con prepared statement
+        $sql_detalle = "INSERT INTO detalle_fac_art (
+          idfactura, idarticulo, numero_orden_item_33, cantidad_item_12,
+          codigo_precio_15_1, precio_venta_item_15_2, afectacion_igv_item_16_1,
+          afectacion_igv_item_16_2, afectacion_igv_item_16_3, afectacion_igv_item_16_4,
+          afectacion_igv_item_16_5, afectacion_igv_item_16_6, igv_item,
+          valor_uni_item_14, valor_venta_item_21, dcto_item, descdet, umedida
+        ) VALUES (
+          ?, ?, ?, ?, ?, ?, ?, ?,
+          (SELECT codigo FROM catalogo7 WHERE codigo = ?),
+          (SELECT codigo FROM catalogo5 WHERE codigo = ?),
+          (SELECT descripcion FROM catalogo5 WHERE codigo = ?),
+          (SELECT unece5153 FROM catalogo5 WHERE codigo = ?),
+          ?, ?, ?, ?, ?, ?
+        )";
+
+        $stmt_det = $conexion->prepare($sql_detalle);
+        if (!$stmt_det) {
+          $this->lastError = $conexion->error;
+          error_log("Error preparando INSERT detalle: " . $conexion->error);
+          mysqli_rollback($conexion);
+          return false;
+        }
+
+        $stmt_det->bind_param(
+          "iissssssssssssssss",
+          $idfacturanew,
+          $idarticulo[$num_elementos],
+          $numero_orden_item[$num_elementos],
+          $cantidad[$num_elementos],
+          $codigo_precio,
+          $valor_unitario[$num_elementos],
+          $igvBD2[$num_elementos],
+          $igvBD3[$num_elementos],
+          $afectacion_igv_3[$num_elementos],
+          $afectacion_igv_4[$num_elementos],
+          $afectacion_igv_4[$num_elementos],
+          $afectacion_igv_4[$num_elementos],
+          $igvBD[$num_elementos],
+          $pvt[$num_elementos],
+          $subtotalBD[$num_elementos],
+          $sumadcto[$num_elementos],
+          $descdet[$num_elementos],
+          $unidad_medida[$num_elementos]
+        );
+
+        if (!$stmt_det->execute()) {
+          $this->lastError = $stmt_det->error;
+          error_log("Error ejecutando INSERT detalle: " . $stmt_det->error);
+          $stmt_det->close();
+          mysqli_rollback($conexion);
+          return false;
+        }
+        $stmt_det->close();
+
+        // CÁLCULO AUTOMÁTICO DE VALORES KARDEX (Promedio Ponderado)
+        // Reutilizamos la instancia $articulo_validator ya creada para validación de stock
+        $valores_kardex = $articulo_validator->calcularValoresKardex(
+          $idarticulo[$num_elementos],
+          $cantidad[$num_elementos],
+          $pvt[$num_elementos],  // precio de venta unitario
+          'VENTA',
+          $tipofactura  // 'productos' o 'servicios'
+        );
+
+        // INSERT kardex con prepared statement y valores calculados
+        $sql_kardex = "INSERT INTO kardex (
+          idcomprobante, idarticulo, transaccion, codigo, fecha, tipo_documento,
+          numero_doc, cantidad, costo_1, unidad_medida, saldo_final, costo_2,
+          valor_final, idempresa, tcambio, moneda
+        ) VALUES (?, ?, 'VENTA', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)";
+
+        $stmt_kar = $conexion->prepare($sql_kardex);
+        if (!$stmt_kar) {
+          $this->lastError = $conexion->error;
+          error_log("Error preparando INSERT kardex: " . $conexion->error);
+          mysqli_rollback($conexion);
+          return false;
+        }
+
+        $stmt_kar->bind_param(
+          "iissssdsdddis",
+          $idfacturanew,
+          $idarticulo[$num_elementos],
+          $codigo[$num_elementos],
+          $fecha_emision,
+          $tipo_documento,
+          $numeracion_completa,
+          $cantidadreal[$num_elementos],
+          $pvt[$num_elementos],
+          $unidad_medida[$num_elementos],
+          $valores_kardex['saldo_final'],      // CALCULADO: stock después de venta
+          $valores_kardex['costo_promedio'],   // CALCULADO: costo promedio ponderado
+          $valores_kardex['valor_final'],      // CALCULADO: valor total del inventario
+          $idempresa,
+          $tcambio
+        );
+
+        if (!$stmt_kar->execute()) {
+          $this->lastError = $stmt_kar->error;
+          error_log("Error ejecutando INSERT kardex: " . $stmt_kar->error);
+          $stmt_kar->close();
+          mysqli_rollback($conexion);
+          return false;
+        }
+        $stmt_kar->close();
+
+        // UPDATE persona con prepared statement (solo una vez, no en loop)
+        if ($num_elementos == 0) {
+          $sqlupdatecliente = "UPDATE persona
+            SET email = ?, domicilio_fiscal = ?, razon_social = ?, nombre_comercial = ?
+            WHERE idpersona = ?";
+
+          $stmt_cli = $conexion->prepare($sqlupdatecliente);
+          if (!$stmt_cli) {
+            $this->lastError = $conexion->error;
+            error_log("Error preparando UPDATE persona: " . $conexion->error);
+            mysqli_rollback($conexion);
+            return false;
+          }
+
+          $stmt_cli->bind_param("ssssi", $email, $domicilio_fiscal2, $RazonSocial, $RazonSocial, $idcliente);
+
+          if (!$stmt_cli->execute()) {
+            $this->lastError = $stmt_cli->error;
+            error_log("Error ejecutando UPDATE persona: " . $stmt_cli->error);
+            $stmt_cli->close();
+            mysqli_rollback($conexion);
+            return false;
+          }
+          $stmt_cli->close();
+        }
+
+        // UPDATE articulo con prepared statement (solo si no es servicios)
+        if ($tipofactura != 'servicios') {
+          $sql_update_articulo = "UPDATE articulo
+            SET saldo_finu = saldo_finu - ?,
+                ventast = ventast + ?,
+                valor_finu = (saldo_iniu + comprast - ventast) * precio_final_kardex,
+                stock = saldo_finu,
+                valor_fin_kardex = (SELECT valor_final FROM kardex
+                                   WHERE idarticulo = ? AND transaccion = 'VENTA'
+                                   ORDER BY idkardex DESC LIMIT 1)
+            WHERE idarticulo = ?";
+
+          $stmt_art = $conexion->prepare($sql_update_articulo);
+          if (!$stmt_art) {
+            $this->lastError = $conexion->error;
+            error_log("Error preparando UPDATE articulo: " . $conexion->error);
+            mysqli_rollback($conexion);
+            return false;
+          }
+
+          $stmt_art->bind_param(
+            "ddii",
+            $cantidadreal[$num_elementos],
+            $cantidadreal[$num_elementos],
+            $idarticulo[$num_elementos],
+            $idarticulo[$num_elementos]
+          );
+
+          if (!$stmt_art->execute()) {
+            $this->lastError = $stmt_art->error;
+            error_log("Error ejecutando UPDATE articulo: " . $stmt_art->error);
+            $stmt_art->close();
+            mysqli_rollback($conexion);
+            return false;
+          }
+          $stmt_art->close();
+        }
+      }
+
+      // INSERT detalle_usuario_sesion con prepared statement
+      $sqldetallesesionusuario = "INSERT INTO detalle_usuario_sesion
+        (idusuario, tcomprobante, idcomprobante, fechahora)
+        VALUES (?, ?, ?, NOW())";
+
+      $stmt_sesion = $conexion->prepare($sqldetallesesionusuario);
+      if (!$stmt_sesion) {
+        $this->lastError = $conexion->error;
+        error_log("Error preparando INSERT sesion: " . $conexion->error);
+        mysqli_rollback($conexion);
+        return false;
+      }
+
+      $stmt_sesion->bind_param("isi", $idusuario, $tipo_documento, $idfacturanew);
+
+      if (!$stmt_sesion->execute()) {
+        $this->lastError = $stmt_sesion->error;
+        error_log("Error ejecutando INSERT sesion: " . $stmt_sesion->error);
+        $stmt_sesion->close();
+        mysqli_rollback($conexion);
+        return false;
+      }
+      $stmt_sesion->close();
+
+      // PROCESAR CUOTAS (eliminar while+count bug)
+      if ($tipopago == 'Credito') {
+        $total_cuotas = count($ncuotahiden);
+
+        // Preparar statement UNA VEZ fuera del loop
+        $sql_cuota = "INSERT INTO cuotas (
+          tipocomprobante, idcomprobante, ncuota, montocuota, fechacuota, estadocuota
+        ) VALUES (?, ?, ?, ?, ?, '1')";
+
+        $stmt_cuota = $conexion->prepare($sql_cuota);
+        if (!$stmt_cuota) {
+          $this->lastError = $conexion->error;
+          error_log("Error preparando INSERT cuota: " . $conexion->error);
+          mysqli_rollback($conexion);
+          return false;
+        }
+
+        for ($numcuotas = 0; $numcuotas < $total_cuotas; $numcuotas++) {
+          $stmt_cuota->bind_param(
+            "sisss",
+            $tipo_documento,
+            $idfacturanew,
+            $ncuotahiden[$numcuotas],
+            $montocuotacre[$numcuotas],
+            $fechapago[$numcuotas]
+          );
+
+          if (!$stmt_cuota->execute()) {
+            $this->lastError = $stmt_cuota->error;
+            error_log("Error ejecutando INSERT cuota: " . $stmt_cuota->error);
+            $stmt_cuota->close();
+            mysqli_rollback($conexion);
+            return false;
+          }
+        }
+        $stmt_cuota->close();
+
+      } else { // SI ES AL CONTADO
+        $sql_cuota_contado = "INSERT INTO cuotas (
+          tipocomprobante, idcomprobante, ncuota, montocuota, fechacuota, estadocuota
+        ) VALUES ('01', ?, '1', ?, ?, '0')";
+
+        $stmt_contado = $conexion->prepare($sql_cuota_contado);
+        if (!$stmt_contado) {
+          $this->lastError = $conexion->error;
+          error_log("Error preparando INSERT cuota contado: " . $conexion->error);
+          mysqli_rollback($conexion);
+          return false;
+        }
+
+        $stmt_contado->bind_param("iss", $idfacturanew, $importe_total_venta, $fecha_emision);
+
+        if (!$stmt_contado->execute()) {
+          $this->lastError = $stmt_contado->error;
+          error_log("Error ejecutando INSERT cuota contado: " . $stmt_contado->error);
+          $stmt_contado->close();
+          mysqli_rollback($conexion);
+          return false;
+        }
+        $stmt_contado->close();
+      }
+
+      // UPDATE numeracion con prepared statement
+      $sql_update_numeracion = "UPDATE numeracion SET numero = ? WHERE idnumeracion = ?";
+
+      $stmt_num = $conexion->prepare($sql_update_numeracion);
+      if (!$stmt_num) {
+        $this->lastError = $conexion->error;
+        error_log("Error preparando UPDATE numeracion: " . $conexion->error);
+        mysqli_rollback($conexion);
+        return false;
+      }
+
+      $stmt_num->bind_param("si", $numero_factura, $idserie);
+
+      if (!$stmt_num->execute()) {
+        $this->lastError = $stmt_num->error;
+        error_log("Error ejecutando UPDATE numeracion: " . $stmt_num->error);
+        $stmt_num->close();
+        mysqli_rollback($conexion);
+        return false;
+      }
+      $stmt_num->close();
+
+      // Commit de transacción
+      mysqli_commit($conexion);
+      return $idfacturanew;
+
+    } catch (Exception $e) {
+      $this->lastError = $e->getMessage();
+      error_log("Error en Factura::insertar(): " . $e->getMessage());
+      mysqli_rollback($conexion);
+      return false;
+    }
   }
 
 

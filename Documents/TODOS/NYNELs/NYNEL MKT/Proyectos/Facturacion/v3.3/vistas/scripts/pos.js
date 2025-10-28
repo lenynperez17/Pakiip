@@ -104,6 +104,118 @@ function listarCategorias() {
 listarCategorias();
 
 
+/* ---------------------------------------------------------------- */
+//                  LISTAR ALMACENES PARA FILTRO
+
+function listarAlmacenes() {
+  $.ajax({
+    url: urlconsumo + 'pos.php?action=listarAlmacenes',
+    type: "get",
+    dataType: "json",
+    success: function (data) {
+      var selectAlmacen = $('#filtro_idalmacen');
+
+      // Limpiar opciones excepto la primera ("Todos los Almacenes")
+      selectAlmacen.find('option:not(:first)').remove();
+
+      // Agregar cada almacén como opción
+      if (data.ListaAlmacenes && data.ListaAlmacenes.length > 0) {
+        data.ListaAlmacenes.forEach(almacen => {
+          selectAlmacen.append(
+            `<option value="${almacen.idalmacen}">${almacen.nombre}</option>`
+          );
+        });
+      }
+    },
+    error: function (error) {
+      console.error('Error al cargar almacenes:', error);
+    }
+  });
+}
+
+listarAlmacenes();
+
+
+/* ---------------------------------------------------------------- */
+//                  FILTRAR POR ALMACÉN
+
+function filtrarPorAlmacen() {
+  var idalmacen = $('#filtro_idalmacen').val();
+  var idfamilia = $('.categoryclic.select').data('idfamilia') || '';
+  var busqueda = $('#search_product').val();
+
+  $('#loader_product').show();
+
+  // Construir URL con parámetros
+  var url_send = urlconsumo + "pos.php?action=listarProducto";
+
+  if (idfamilia) {
+    url_send += "&idfamilia=" + idfamilia;
+  }
+
+  if (busqueda) {
+    url_send += "&busqueda=" + busqueda;
+  }
+
+  if (idalmacen) {
+    url_send += "&idalmacen=" + idalmacen;
+  }
+
+  $.ajax({
+    url: url_send,
+    type: 'get',
+    dataType: 'json',
+    success: function (data) {
+      listarCardProductos(data);
+      $('#loader_product').hide();
+    },
+    error: function (error) {
+      console.error('Error al filtrar productos:', error);
+      $('#loader_product').hide();
+    }
+  });
+}
+
+
+/* ---------------------------------------------------------------- */
+//           PREVISUALIZAR IMAGEN EN MODAL DE PRODUCTO
+
+function previsualizarImagenPos(input) {
+  var preview = $('#preview_imagen_pos');
+  var container = $('#preview_container_pos');
+
+  if (input.files && input.files[0]) {
+    var file = input.files[0];
+
+    // Validar tamaño (máximo 2MB)
+    if (file.size > 2097152) {
+      alert('La imagen no debe superar los 2MB');
+      input.value = '';
+      container.hide();
+      return;
+    }
+
+    // Validar tipo
+    var validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      alert('Solo se permiten imágenes JPG, PNG o WEBP');
+      input.value = '';
+      container.hide();
+      return;
+    }
+
+    // Mostrar preview
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      preview.attr('src', e.target.result);
+      container.show();
+    };
+    reader.readAsDataURL(file);
+  } else {
+    container.hide();
+  }
+}
+
 
 /* ---------------------------------------------------------------- */
 //                   LISTAR PRODUCTOS (BUSQUEDA)
@@ -113,10 +225,18 @@ function listarProductos(busqueda) {
 
   $('#loader_product').show();
 
+  var idalmacen = $('#filtro_idalmacen').val();
+
+  // Construir URL base
+  url_send = urlconsumo + 'pos.php?action=listarProducto';
+
+  // Agregar parámetros
   if (busqueda != '') {
-    url_send = urlconsumo + 'pos.php?action=listarProducto&busqueda=' + busqueda;
-  } else {
-    url_send = urlconsumo + 'pos.php?action=listarProducto';
+    url_send += '&busqueda=' + busqueda;
+  }
+
+  if (idalmacen) {
+    url_send += '&idalmacen=' + idalmacen;
   }
 
   $.ajax({
@@ -252,11 +372,17 @@ function listarPorCategoria(event) {
   event.target.classList.add('select');
 
   busqueda = $('#search_product').val();
+  var idalmacen = $('#filtro_idalmacen').val();
+
+  // Construir URL con parámetros
+  url_send = urlconsumo + "pos.php?action=listarProducto&idfamilia=" + idfamilia;
 
   if (busqueda != '') {
-    url_send = urlconsumo + "pos.php?action=listarProducto&idfamilia=" + idfamilia + "&busqueda=" + busqueda;
-  } else {
-    url_send = urlconsumo + "pos.php?action=listarProducto&idfamilia=" + idfamilia;
+    url_send += "&busqueda=" + busqueda;
+  }
+
+  if (idalmacen) {
+    url_send += "&idalmacen=" + idalmacen;
   }
 
   if (idfamilia) {
@@ -334,6 +460,11 @@ function listarCardProductos(data) {
           <img src="${productImage}" alt="${product.nombre}" height="100%" class=" mb-2">
         </div>
         <div class="card-body text-center p-0">
+          <div class="mb-1">
+            <span class="badge bg-info text-white" style="font-size: 10px;">
+              <i class="fa fa-warehouse"></i> ${product.nombreal}
+            </span>
+          </div>
           <label class="fw-bolder fs-12" id="p_nombre">${product.nombre}</label> `;
 
       var s_tipo_precio = $('#s_tipo_precio').val();

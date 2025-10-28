@@ -1,0 +1,115 @@
+[28-Jan-2024 11:33:23 America/Lima] PHP Deprecated:  Function get_magic_quotes_runtime() is deprecated in /home/paginasw/factura.paginasweb7.com/fpdf181/fpdf.php on line 1045
+[28-Jan-2024 11:33:23 America/Lima] PHP Notice:  Undefined variable: mon in /home/paginasw/factura.paginasweb7.com/reportes/compraReporte.php on line 103
+[28-Jan-2024 11:33:23 America/Lima] PHP Notice:  Undefined variable: tc in /home/paginasw/factura.paginasweb7.com/reportes/compraReporte.php on line 103
+[28-Jan-2024 11:34:09 America/Lima] PHP Deprecated:  Function get_magic_quotes_runtime() is deprecated in /home/paginasw/factura.paginasweb7.com/fpdf181/fpdf.php on line 1045
+[28-Jan-2024 12:16:33 America/Lima] PHP Deprecated:  Function get_magic_quotes_runtime() is deprecated in /home/paginasw/factura.paginasweb7.com/fpdf181/fpdf.php on line 1045
+[28-Jan-2024 12:16:33 America/Lima] PHP Notice:  Undefined variable: mon in /home/paginasw/factura.paginasweb7.com/reportes/compraReporte.php on line 103
+[28-Jan-2024 12:16:33 America/Lima] PHP Notice:  Undefined variable: tc in /home/paginasw/factura.paginasweb7.com/reportes/compraReporte.php on line 103
+[28-Jan-2024 12:16:52 America/Lima] PHP Deprecated:  Function get_magic_quotes_runtime() is deprecated in /home/paginasw/factura.paginasweb7.com/fpdf181/fpdf.php on line 1045
+[28-Jan-2024 12:16:52 America/Lima] PHP Notice:  Undefined variable: mon in /home/paginasw/factura.paginasweb7.com/reportes/compraReporte.php on line 103
+[28-Jan-2024 12:16:52 America/Lima] PHP Notice:  Undefined variable: tc in /home/paginasw/factura.paginasweb7.com/reportes/compraReporte.php on line 103
+[28-Jan-2024 12:17:01 America/Lima] PHP Deprecated:  Function get_magic_quotes_runtime() is deprecated in /home/paginasw/factura.paginasweb7.com/fpdf181/fpdf.php on line 1045
+[28-Jan-2024 12:17:18 America/Lima] PHP Deprecated:  Function get_magic_quotes_runtime() is deprecated in /home/paginasw/factura.paginasweb7.com/fpdf181/fpdf.php on line 1045
+[28-Jan-2024 12:31:35 America/Lima] PHP Deprecated:  Function get_magic_quotes_runtime() is deprecated in /home/paginasw/factura.paginasweb7.com/fpdf181/fpdf.php on line 1045
+[28-Jan-2024 12:31:35 America/Lima] PHP Notice:  Undefined variable: mon in /home/paginasw/factura.paginasweb7.com/reportes/compraReporte.php on line 103
+[28-Jan-2024 12:31:35 America/Lima] PHP Notice:  Undefined variable: tc in /home/paginasw/factura.paginasweb7.com/reportes/compraReporte.php on line 103
+[28-Jan-2024 12:38:00 America/Lima] PHP Notice:  Undefined property: stdClass::$masterC in /home/paginasw/factura.paginasweb7.com/reportes/exTicketBoleta.php on line 224
+[28-Jan-2024 12:38:00 America/Lima] PHP Notice:  Undefined property: stdClass::$dep in /home/paginasw/factura.paginasweb7.com/reportes/exTicketBoleta.php on line 228
+[28-Jan-2024 12:38:00 America/Lima] PHP Notice:  Undefined property: stdClass::$masterC in /home/paginasw/factura.paginasweb7.com/reportes/exTicketBoleta.php on line 252
+[28-Jan-2024 12:38:00 America/Lima] PHP Notice:  Undefined property: stdClass::$dep in /home/paginasw/factura.paginasweb7.com/reportes/exTicketBoleta.php on line 256
+[28-Jan-2024 12:38:00 America/Lima] PHP Notice:  Undefined property: stdClass::$sumatoria_igv_18_1 in /home/paginasw/factura.paginasweb7.com/reportes/exTicketBoleta.php on line 435
+[28-Jan-2024 12:42:19 America/Lima] PHP Notice:  Undefined property: stdClass::$masterC in /home/paginasw/factura.paginasweb7.com/reportes/exTicketBoleta.php on line 224
+[28-Jan-2024 12:42:19 America/Lima] PHP Notice:  Undefined property: stdClass::$dep in /home/paginasw/factura.paginasweb7.com/reportes/exTicketBoleta.php on line 228
+[28-Jan-2024 12:42:19 America/Lima] PHP Notice:  Undefined property: stdClass::$masterC in /home/paginasw/factura.paginasweb7.com/reportes/exTicketBoleta.php on line 252
+[28-Jan-2024 12:42:19 America/Lima] PHP Notice:  Undefined property: stdClass::$dep in /home/paginasw/factura.paginasweb7.com/reportes/exTicketBoleta.php on line 256
+[28-Jan-2024 12:42:19 America/Lima] PHP Notice:  Undefined property: stdClass::$sumatoria_igv_18_1 in /home/paginasw/factura.paginasweb7.com/reportes/exTicketBoleta.php on line 435
+[28-Jan-2024 12:57:22 America/Lima] PHP Notice:  Undefined property: stdClass::$masterC in /home/paginasw/factura.paginasweb7.com/reportes/exTicketBoleta.php on line 224
+[28-Jan-2024 12:57:22 America/Lima] PHP Notice:  Undefined property: stdClass::$dep in /home/paginasw/factura.paginasweb7.com/reportes/exTicketBoleta.php on line 228
+[28-Jan-2024 12:57:22 America/Lima] PHP Notice:  Undefined property: stdClass::$masterC in /home/paginasw/factura.paginasweb7.com/reportes/exTicketBoleta.php on line 252
+[28-Jan-2024 12:57:22 America/Lima] PHP Notice:  Undefined property: stdClass::$dep in /home/paginasw/factura.paginasweb7.com/reportes/exTicketBoleta.php on line 256
+[28-Jan-2024 12:57:22 America/Lima] PHP Notice:  Undefined property: stdClass::$sumatoria_igv_18_1 in /home/paginasw/factura.paginasweb7.com/reportes/exTicketBoleta.php on line 435
+[28-Jan-2024 12:57:22 America/Lima] PHP Warning:  A non-numeric value encountered in /home/paginasw/factura.paginasweb7.com/reportes/Letras.php on line 205
+[28-Jan-2024 12:57:22 America/Lima] PHP Warning:  A non-numeric value encountered in /home/paginasw/factura.paginasweb7.com/reportes/Letras.php on line 205
+[28-Jan-2024 15:21:43 America/Lima] PHP Notice:  Undefined property: stdClass::$masterC in /home/paginasw/factura.paginasweb7.com/reportes/exTicketBoleta.php on line 224
+[28-Jan-2024 15:21:43 America/Lima] PHP Notice:  Undefined property: stdClass::$dep in /home/paginasw/factura.paginasweb7.com/reportes/exTicketBoleta.php on line 228
+[28-Jan-2024 15:21:43 America/Lima] PHP Notice:  Undefined property: stdClass::$masterC in /home/paginasw/factura.paginasweb7.com/reportes/exTicketBoleta.php on line 252
+[28-Jan-2024 15:21:43 America/Lima] PHP Notice:  Undefined property: stdClass::$dep in /home/paginasw/factura.paginasweb7.com/reportes/exTicketBoleta.php on line 256
+[28-Jan-2024 15:21:43 America/Lima] PHP Notice:  Undefined property: stdClass::$sumatoria_igv_18_1 in /home/paginasw/factura.paginasweb7.com/reportes/exTicketBoleta.php on line 435
+[12-Mar-2024 07:33:34 America/Lima] PHP Deprecated:  Function get_magic_quotes_runtime() is deprecated in /home/paginasw/factura.paginasweb7.com/fpdf181/fpdf.php on line 1045
+[12-Mar-2024 07:33:47 America/Lima] PHP Deprecated:  Function get_magic_quotes_runtime() is deprecated in /home/paginasw/factura.paginasweb7.com/fpdf181/fpdf.php on line 1045
+[12-Mar-2024 07:34:01 America/Lima] PHP Deprecated:  Function get_magic_quotes_runtime() is deprecated in /home/paginasw/factura.paginasweb7.com/fpdf181/fpdf.php on line 1045
+[12-Mar-2024 07:34:25 America/Lima] PHP Deprecated:  Function get_magic_quotes_runtime() is deprecated in /home/paginasw/factura.paginasweb7.com/fpdf181/fpdf.php on line 1045
+[12-Mar-2024 07:35:26 America/Lima] PHP Deprecated:  The each() function is deprecated. This message will be suppressed on further calls in /home/paginasw/factura.paginasweb7.com/reportes/Guia.php on line 804
+[12-Mar-2024 07:36:48 America/Lima] PHP Deprecated:  Function get_magic_quotes_runtime() is deprecated in /home/paginasw/factura.paginasweb7.com/fpdf181/fpdf.php on line 1045
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Shared/String.php on line 526
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Shared/String.php on line 527
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Shared/String.php on line 538
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Shared/String.php on line 539
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Shared/String.php on line 541
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Shared/String.php on line 542
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Calculation.php on line 2551
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Calculation.php on line 2551
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Calculation.php on line 2672
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Calculation.php on line 2672
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Calculation.php on line 2676
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Calculation.php on line 2764
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Calculation.php on line 2768
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Calculation.php on line 2780
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Calculation.php on line 3034
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Calculation.php on line 3166
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Calculation.php on line 3168
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Calculation.php on line 3169
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Calculation.php on line 3457
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Calculation.php on line 3457
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Calculation.php on line 3460
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Calculation.php on line 3461
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Calculation.php on line 3891
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Calculation.php on line 3891
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Calculation.php on line 3936
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Calculation.php on line 3942
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Calculation.php on line 3998
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Calculation.php on line 4001
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Worksheet/AutoFilter.php on line 720
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Worksheet/AutoFilter.php on line 720
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Cell.php on line 812
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Cell.php on line 813
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Cell.php on line 816
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Cell.php on line 817
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Cell.php on line 817
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Cell.php on line 819
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Cell.php on line 820
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Cell.php on line 820
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Cell.php on line 820
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Cell.php on line 824
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Cell/DefaultValueBinder.php on line 82
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Cell/DefaultValueBinder.php on line 90
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Cell/DefaultValueBinder.php on line 90
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/ReferenceHelper.php on line 884
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/ReferenceHelper.php on line 884
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/ReferenceHelper.php on line 885
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/ReferenceHelper.php on line 885
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Writer/Excel5/Parser.php on line 1023
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Writer/Excel5/Parser.php on line 1045
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Writer/Excel5/Parser.php on line 1050
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Writer/Excel5/Parser.php on line 1056
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Writer/Excel5/Parser.php on line 1059
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Writer/Excel5/Parser.php on line 1074
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Writer/Excel5/Parser.php on line 1175
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Writer/Excel5/Parser.php on line 1175
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Calculation/Functions.php on line 321
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Calculation/Functions.php on line 324
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Calculation/Functions.php on line 562
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Calculation/Functions.php on line 612
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Writer/Excel5/Workbook.php on line 667
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Writer/Excel5/Workbook.php on line 667
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Writer/Excel5/Workbook.php on line 667
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Writer/Excel5/Worksheet.php on line 879
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Invalid characters passed for attempted conversion, these have been ignored in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Writer/Excel5/Workbook.php on line 325
+[12-Mar-2024 07:36:53 America/Lima] PHP Warning:  "continue" targeting switch is equivalent to "break". Did you mean to use "continue 2"? in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Shared/OLE.php on line 288
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Array and string offset access syntax with curly braces is deprecated in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Shared/OLE.php on line 446
+[12-Mar-2024 07:36:53 America/Lima] PHP Deprecated:  Invalid characters passed for attempted conversion, these have been ignored in /home/paginasw/factura.paginasweb7.com/reportes/PHPExcel/Writer/Excel5/Workbook.php on line 325
+[12-Mar-2024 07:45:26 America/Lima] PHP Deprecated:  Function get_magic_quotes_runtime() is deprecated in /home/paginasw/factura.paginasweb7.com/fpdf181/fpdf.php on line 1045
+[12-Mar-2024 07:45:45 America/Lima] PHP Deprecated:  Function get_magic_quotes_runtime() is deprecated in /home/paginasw/factura.paginasweb7.com/fpdf181/fpdf.php on line 1045
+[12-Mar-2024 07:46:43 America/Lima] PHP Deprecated:  Function get_magic_quotes_runtime() is deprecated in /home/paginasw/factura.paginasweb7.com/fpdf181/fpdf.php on line 1045
+[12-Mar-2024 07:46:51 America/Lima] PHP Deprecated:  Function get_magic_quotes_runtime() is deprecated in /home/paginasw/factura.paginasweb7.com/fpdf181/fpdf.php on line 1045
+[12-Mar-2024 07:47:28 America/Lima] PHP Deprecated:  Function get_magic_quotes_runtime() is deprecated in /home/paginasw/factura.paginasweb7.com/fpdf181/fpdf.php on line 1045

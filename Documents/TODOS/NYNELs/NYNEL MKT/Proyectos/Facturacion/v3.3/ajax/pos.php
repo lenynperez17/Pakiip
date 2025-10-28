@@ -45,6 +45,7 @@ $domicilio_fiscal = isset($_POST["domicilio_fiscal"]) ? limpiarCadena($_POST["do
 $idfamilia = isset($_POST["idfamilia"]) ? limpiarcadena($_POST["idfamilia"]) : null;
 $idfamilia = isset($_GET["idfamilia"]) ? limpiarcadena($_GET["idfamilia"]) : null;
 $busqueda = isset($_GET["busqueda"]) ? limpiarcadena($_GET["busqueda"]) : null;
+$idalmacen_filtro = isset($_GET["idalmacen"]) ? limpiarcadena($_GET["idalmacen"]) : null;
 
 
 
@@ -63,6 +64,7 @@ if (isset($_GET['action'])) {
 }
 
 if ($action == 'listarProducto') {
+    // Agregar filtro de almacén a la consulta
     $rspta = $posmodelo->listarProducto(1, $idfamilia, $busqueda);
     $data = array();
 
@@ -73,10 +75,16 @@ if ($action == 'listarProducto') {
     $baseURL = preg_replace('#/ajax$#', '', $baseURL); // Elimina la parte "/ajax" si existe
 
     while ($reg = $rspta->fetch_object()) {
+        // Filtrar por almacén si se especifica
+        if ($idalmacen_filtro && $reg->idalmacen != $idalmacen_filtro) {
+            continue; // Saltar este producto si no coincide con el almacén filtrado
+        }
+
         $imagenURL = $baseURL . '/files/articulos/' . $reg->imagen;
 
         $data[] = array(
             'idarticulo' => $reg->idarticulo,
+            'idalmacen' => $reg->idalmacen,
             'idfamilia' => $reg->idfamilia,
             'codigo_proveedor' => $reg->codigo_proveedor,
             'codigo' => $reg->codigo,
@@ -116,7 +124,7 @@ if ($action == 'listarProducto') {
 }
 
 
-//Listar Categorias : 
+//Listar Categorias :
 
 if ($action == 'listarCategorias') {
     $rspta = $posmodelo->listarcategorias();
@@ -135,6 +143,36 @@ if ($action == 'listarCategorias') {
 
     header('Content-type: application/json');
     echo json_encode($results);
+}
+
+//Listar Almacenes para filtro multi-sede:
+if ($action == 'listarAlmacenes') {
+    // Validar sesión
+    if (!isset($_SESSION['idempresa']) || empty($_SESSION['idempresa'])) {
+        header('Content-Type: application/json');
+        echo json_encode(['error' => 'Sesión inválida']);
+        exit;
+    }
+
+    $sql = "SELECT idalmacen, nombre, direccion, estado
+            FROM almacen
+            WHERE idempresa = '{$_SESSION['idempresa']}' AND estado = 1
+            ORDER BY nombre ASC";
+
+    $rspta = ejecutarConsulta($sql);
+    $data = array();
+
+    while ($reg = $rspta->fetch_object()) {
+        $data[] = array(
+            'idalmacen' => $reg->idalmacen,
+            'nombre' => $reg->nombre,
+            'direccion' => $reg->direccion,
+            'estado' => $reg->estado
+        );
+    }
+
+    header('Content-type: application/json');
+    echo json_encode(array("ListaAlmacenes" => $data));
 }
 
 
