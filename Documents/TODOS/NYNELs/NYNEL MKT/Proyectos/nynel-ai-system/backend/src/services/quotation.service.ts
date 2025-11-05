@@ -14,6 +14,7 @@ import { prisma } from '../config/database.js';
 import { manyChatAPI } from './manychat-api.service.js';
 import { emailNotificationService } from './email-notification.service.js';
 import { quotationHTMLTemplateService } from './quotation-html-template.service.js';
+import { pricingLogicService } from './pricing-logic.service.js';
 
 interface QuotationData {
   subscriberId: string;
@@ -873,7 +874,66 @@ class QuotationService {
 
   /**
    * ═══════════════════════════════════════════════════════════════════════════
-   * 💡 GENERAR COTIZACIÓN PERSONALIZADA (FALLBACK)
+   * 🔍 MAPEAR PROJECT TYPE A SERVICE ID
+   * ═══════════════════════════════════════════════════════════════════════════
+   */
+  private mapProjectTypeToServiceId(projectType?: string, descripcion?: string): string {
+    if (!projectType && !descripcion) return 'software-medida';
+
+    const type = (projectType || '').toLowerCase();
+    const desc = (descripcion || '').toLowerCase();
+    const combined = `${type} ${desc}`;
+
+    // Marketing y redes sociales
+    if (combined.includes('marketing') || combined.includes('redes sociales') ||
+        combined.includes('social media') || combined.includes('facebook') ||
+        combined.includes('instagram')) {
+      return 'seo-marketing';
+    }
+
+    // Chatbot
+    if (combined.includes('chatbot') || combined.includes('bot') || combined.includes('whatsapp')) {
+      return 'chatbot-ai';
+    }
+
+    // Apps móviles
+    if (combined.includes('app') || combined.includes('movil') || combined.includes('mobile')) {
+      return 'apps-moviles';
+    }
+
+    // Páginas web
+    if (combined.includes('web') || combined.includes('pagina') || combined.includes('sitio') ||
+        combined.includes('landing')) {
+      return 'paginas-web';
+    }
+
+    // E-commerce
+    if (combined.includes('tienda') || combined.includes('ecommerce') || combined.includes('e-commerce')) {
+      return 'paginas-web'; // E-commerce usa pricing de web
+    }
+
+    // Campañas publicitarias
+    if (combined.includes('campaña') || combined.includes('publicidad') || combined.includes('ads')) {
+      return 'campañas-publicitarias';
+    }
+
+    // Analítica
+    if (combined.includes('analitica') || combined.includes('analytics') || combined.includes('dashboard')) {
+      return 'analitica-datos';
+    }
+
+    // Email marketing
+    if (combined.includes('email') || combined.includes('newsletter')) {
+      return 'email-marketing';
+    }
+
+    // Por defecto: software a medida
+    return 'software-medida';
+  }
+
+  /**
+   * ═══════════════════════════════════════════════════════════════════════════
+   * 💡 GENERAR COTIZACIÓN PERSONALIZADA (CON PRICING LOGIC SERVICE)
    * ═══════════════════════════════════════════════════════════════════════════
    */
   private generateCustomQuotation(
@@ -888,69 +948,85 @@ class QuotationService {
       complexity: string;
     }
   ): QuotationPackage[] {
-    let precioBase = 2000;
+    // ✅ USAR PRICING LOGIC SERVICE REAL
+    const serviceId = this.mapProjectTypeToServiceId(data.projectType, data.descripcionProyecto);
 
-    if (details.complexity === 'simple') {
-      precioBase = 2000;
-    } else if (details.complexity === 'intermedia') {
-      precioBase = 8000;
-    } else if (details.complexity === 'compleja') {
-      precioBase = 20000;
-    } else if (details.complexity === 'enterprise') {
-      precioBase = 35000;
-    }
+    const complexity = (details.complexity || 'intermedia') as 'simple' | 'intermedia' | 'compleja' | 'enterprise';
 
-    // Incremento por cantidad de features
-    precioBase += details.features.length * 1000;
-    precioBase += details.integrations.length * 1500;
+    // Calcular precio usando el servicio real de pricing
+    const pricingResult = pricingLogicService.calculatePrice({
+      serviceId,
+      complexity,
+      features: details.features,
+      integrations: details.integrations,
+      platforms: details.platforms,
+    });
 
+    logger.info(`💰 [PRICING] Calculado con pricing-logic.service:`, {
+      serviceId,
+      complexity,
+      precioMin: pricingResult.rango.minimo,
+      precioMax: pricingResult.rango.maximo,
+      precioFinal: pricingResult.precioFinal,
+    });
+
+    // Usar el precio calculado (mostrar rango)
+    const precioMinFormatted = pricingResult.rango.minimo.toLocaleString('es-PE');
+    const precioMaxFormatted = pricingResult.rango.maximo.toLocaleString('es-PE');
+    const precioDisplay = pricingResult.rango.minimo === pricingResult.rango.maximo
+      ? `S/ ${precioMinFormatted}`
+      : `S/ ${precioMinFormatted} - S/ ${precioMaxFormatted}`;
+
+    // Construir lista de features
     const packageFeatures: string[] = [
-      '💻 Desarrollo 100% a medida',
+      '💻 Solución 100% personalizada',
       '🎨 Diseño profesional',
-      '✅ Testing completo',
+      '✅ Testing y QA completo',
       '📚 Documentación técnica',
     ];
 
-    // Agregar features
-    details.features.forEach(feature => {
-      packageFeatures.push(`⭐ ${feature}`);
-    });
-
-    // Agregar integraciones
-    details.integrations.forEach(integration => {
-      packageFeatures.push(`🔗 Integración con ${integration}`);
-    });
-
-    // Requisitos específicos
-    details.specificRequirements.forEach(req => {
-      packageFeatures.push(`💎 ${req}`);
-    });
-
-    // Features según complejidad
-    if (details.complexity === 'simple') {
-      packageFeatures.push('🛠️ 3 meses de soporte técnico');
-    } else if (details.complexity === 'intermedia') {
-      packageFeatures.push('⚙️ Panel de administración');
-      packageFeatures.push('📊 Analytics y reportes');
-      packageFeatures.push('📚 Capacitación incluida');
-      packageFeatures.push('🛠️ 6 meses de soporte técnico');
-    } else {
-      packageFeatures.push('🏢 Arquitectura enterprise escalable');
-      packageFeatures.push('🔐 Seguridad avanzada');
-      packageFeatures.push('⚡ Alta disponibilidad');
-      packageFeatures.push('📊 Analytics avanzado');
-      packageFeatures.push('👨‍💼 Account manager dedicado');
-      packageFeatures.push('🛠️ 12 meses de soporte técnico');
+    // Agregar recomendaciones del pricing service
+    if (pricingResult.recomendaciones && pricingResult.recomendaciones.length > 0) {
+      pricingResult.recomendaciones.forEach(rec => {
+        packageFeatures.push(`💡 ${rec}`);
+      });
     }
 
-    const semanasEntrega = details.complexity === 'enterprise' ? '12-20' : details.complexity === 'compleja' ? '8-14' : details.complexity === 'intermedia' ? '5-8' : '3-5';
+    // Agregar features específicos del cliente
+    if (details.features.length > 0) {
+      details.features.forEach(feature => {
+        packageFeatures.push(`⭐ ${feature}`);
+      });
+    }
+
+    // Agregar integraciones
+    if (details.integrations.length > 0) {
+      details.integrations.forEach(integration => {
+        packageFeatures.push(`🔗 Integración con ${integration}`);
+      });
+    }
+
+    // Requisitos específicos
+    if (details.specificRequirements.length > 0) {
+      details.specificRequirements.forEach(req => {
+        packageFeatures.push(`💎 ${req}`);
+      });
+    }
+
+    // Determinar tiempo de entrega según complejidad
+    const deliveryWeeks = {
+      'simple': '2-4',
+      'intermedia': '4-8',
+      'compleja': '8-12',
+      'enterprise': '12-20',
+    }[complexity] || '4-8';
 
     return [
       {
-        name: details.projectName || `💡 ${data.clientName ? 'Tu' : 'Nuestra'} Solución Personalizada`,
-        price: `Desde S/ ${precioBase.toLocaleString('es-PE')}`,
+        name: pricingResult.servicio.nombre || details.projectName || `💡 ${data.clientName ? 'Tu' : 'Nuestra'} Solución Personalizada`,
+        price: precioDisplay,
         features: packageFeatures,
-        deliveryTime: `${semanasEntrega} semanas`,
+        deliveryTime: `${deliveryWeeks} semanas`,
       },
     ];
   }
