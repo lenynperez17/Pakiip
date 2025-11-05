@@ -367,10 +367,10 @@ export const initialData: AppData = {
     welcomeImageUrl: '',
     driverWelcomeImageUrl: '',
     firebaseConfig: {
-      apiKey: "AIzaSyC-9qDgUuSis0SE6hAPxG2omzLfGjk1RkA",
-      authDomain: "pakiip.firebaseapp.com",
-      projectId: "pakiip",
-      storageBucket: "pakiip.firebasestorage.app",
+      apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "",
+      authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "",
+      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "",
+      storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "",
     },
     taxType: 'gravada',
     taxRate: 18, // IGV Peru
