@@ -86,8 +86,6 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&family=PT+Sans:wght@400;700&display=swap" rel="stylesheet" />
-        {/* reCAPTCHA Enterprise para autenticación por teléfono */}
-        <script src="https://www.google.com/recaptcha/enterprise.js" async defer></script>
         {/* Script para limpiar atributos de extensiones ANTES de la hidratación de React */}
         <script dangerouslySetInnerHTML={{
           __html: `

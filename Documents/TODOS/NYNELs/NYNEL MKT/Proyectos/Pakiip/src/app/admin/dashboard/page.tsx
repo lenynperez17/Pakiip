@@ -1,7 +1,7 @@
 
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Truck, Store, DollarSign, ListOrdered, HandHeart, BarChartHorizontal, Map, LayoutGrid, Users, Scale, Settings } from "lucide-react";
 import { useAppData } from "@/hooks/use-app-data";
 import { formatCurrency } from "@/lib/utils";
@@ -42,7 +42,7 @@ function AdminDashboardPageContent() {
             </div>
         </div>
 
-        <div className="grid gap-3 sm:gap-4 md:gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 px-2 sm:px-3 md:px-4">
+        <div className="grid gap-3 sm:gap-4 md:gap-5 grid-cols-3 px-2 sm:px-3 md:px-4">
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-3 sm:p-4 md:p-6">
                     <CardTitle className="text-xs sm:text-sm font-medium">Tiendas Totales</CardTitle>
@@ -72,7 +72,7 @@ function AdminDashboardPageContent() {
             </Card>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-5 lg:gap-6 px-2 sm:px-3 md:px-4">
+        <div className="grid grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4 md:gap-5 lg:gap-6 px-2 sm:px-3 md:px-4">
             {navItems.map(item => (
                  <Link href={item.href} key={item.title} className="block hover:-translate-y-1 transition-transform duration-200">
                     <Card className="h-full">

@@ -151,23 +151,21 @@ export async function signInWithEmailPassword(email: string, password: string) {
 }
 
 /**
- * Configura el reCAPTCHA Enterprise para autenticación por teléfono
+ * Configura el reCAPTCHA para autenticación por teléfono
+ * Firebase SDK maneja automáticamente reCAPTCHA Enterprise cuando está configurado en Firebase Console
  * @param containerId ID del contenedor donde se mostrará el reCAPTCHA
  */
 export function setupRecaptcha(containerId: string): RecaptchaVerifier {
   const auth = getFirebaseAuth();
 
-  // Site key de reCAPTCHA Enterprise
-  const recaptchaSiteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || '6Ley_QEsAAAAAN_pWtuBr2Ir-1q8EjVrMyhwplbV';
-
-  // Configuración de reCAPTCHA Enterprise con site key explícita
+  // RecaptchaVerifier usa automáticamente la configuración de reCAPTCHA Enterprise de Firebase Console
   return new RecaptchaVerifier(auth, containerId, {
     size: 'invisible',
     callback: () => {
-      console.log('✅ reCAPTCHA Enterprise resuelto');
+      console.log('✅ reCAPTCHA resuelto');
     },
     'expired-callback': () => {
-      console.warn('⚠️ reCAPTCHA Enterprise expirado');
+      console.warn('⚠️ reCAPTCHA expirado');
     }
   });
 }

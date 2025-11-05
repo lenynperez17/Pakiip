@@ -2,11 +2,9 @@
 "use client";
 
 import Link from 'next/link';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Truck, Users, ListOrdered, CheckCircle, Map, Wallet, Settings } from 'lucide-react';
 import { useAppData } from '@/hooks/use-app-data';
-import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { AuthGuard } from "@/components/AuthGuard";
 
@@ -67,7 +65,7 @@ function DriverDashboardPageContent() {
                 </div>
             </div>
 
-             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+             <div className="grid grid-cols-3 gap-3 sm:gap-4">
                  <Card className="bg-muted/50 border-dashed">
                     <CardHeader className="flex-row items-center gap-3 sm:gap-4 space-y-0 p-3 sm:p-4 md:p-6">
                         <ListOrdered className="h-6 w-6 sm:h-7 sm:w-7 md:h-8 md:w-8 text-muted-foreground flex-shrink-0" />
@@ -94,7 +92,7 @@ function DriverDashboardPageContent() {
                 </Card>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-5 lg:gap-6">
+            <div className="grid grid-cols-3 md:grid-cols-4 gap-3 sm:gap-4 md:gap-5 lg:gap-6">
                 {navItems.map(item => (
                      <Link href={item.href} key={item.title} className="block hover:-translate-y-1 transition-transform duration-200">
                         <Card className="h-full relative">

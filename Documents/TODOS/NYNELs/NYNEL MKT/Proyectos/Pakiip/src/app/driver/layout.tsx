@@ -1,0 +1,86 @@
+
+
+'use client';
+
+import Link from 'next/link';
+import Image from 'next/image';
+import { useAppData } from '@/hooks/use-app-data';
+import { Button } from '@/components/ui/button';
+import { LogOut, Home, User } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { useRouter } from 'next/navigation';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Logo } from '@/components/icons/Logo';
+
+function DriverLogo() {
+  const { appSettings: settings } = useAppData();
+  if (settings.logoUrl) {
+    return <Image src={settings.logoUrl} alt={settings.appName} width={24} height={24} className="h-6 w-6 object-contain" />
+  }
+  return <Logo className="h-6 w-6 text-primary" />;
+}
+
+export default function DriverLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const { currentUser, logout } = useAppData();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await logout();
+    router.push('/');
+  }
+
+  const getInitials = (name: string) => {
+    return name.split(' ').map(n => n[0]).join('').toUpperCase();
+  }
+
+  return (
+    <div className="driver-layout flex min-h-screen w-full flex-col bg-muted/40">
+       <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
+        <div className="flex w-full items-center justify-between">
+            <div className="flex items-center gap-2 font-semibold">
+              <DriverLogo />
+              <span className="font-headline text-xl font-bold">Repartidor</span>
+            </div>
+            <div className="flex items-center gap-4">
+               <Button variant="outline" size="sm" asChild>
+                    <Link href="/"><Home className="mr-2 h-4 w-4"/> Ir a Inicio</Link>
+                </Button>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="icon" className="overflow-hidden rounded-full">
+                           {currentUser ? (
+                                <Avatar className="h-8 w-8">
+                                    {currentUser.profileImageUrl && <AvatarImage src={currentUser.profileImageUrl} alt={currentUser.name} />}
+                                    <AvatarFallback>{getInitials(currentUser.name)}</AvatarFallback>
+                                </Avatar>
+                            ) : (
+                                <User className="h-5 w-5" />
+                            )}
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        {currentUser && (
+                            <>
+                            <DropdownMenuLabel>{currentUser.name}</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            </>
+                        )}
+                        <DropdownMenuItem onClick={handleLogout}>
+                            <LogOut className="mr-2 h-4 w-4" />
+                            Cerrar Sesión
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            </div>
+        </div>
+      </header>
+      <main className="driver-main flex flex-1 flex-col gap-4 px-4 sm:px-6 py-4 md:gap-8 md:py-6 lg:px-8 w-full max-w-7xl mx-auto">
+        {children}
+      </main>
+    </div>
+  );
+}
