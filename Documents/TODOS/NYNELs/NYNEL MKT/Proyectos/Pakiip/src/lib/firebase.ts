@@ -157,7 +157,10 @@ export async function signInWithEmailPassword(email: string, password: string) {
 export function setupRecaptcha(containerId: string): RecaptchaVerifier {
   const auth = getFirebaseAuth();
 
-  // Configuración de reCAPTCHA Enterprise
+  // Site key de reCAPTCHA Enterprise
+  const recaptchaSiteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY || '6Ley_QEsAAAAAN_pWtuBr2Ir-1q8EjVrMyhwplbV';
+
+  // Configuración de reCAPTCHA Enterprise con site key explícita
   return new RecaptchaVerifier(auth, containerId, {
     size: 'invisible',
     callback: () => {
