@@ -5,7 +5,7 @@
 // Basado en la plantilla de referencia 'cotizacion-app-todo-en-uno'
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { logger } from '../utils/logger';
+import { logger } from '../utils/logger.js';
 import fs from 'fs';
 import path from 'path';
 

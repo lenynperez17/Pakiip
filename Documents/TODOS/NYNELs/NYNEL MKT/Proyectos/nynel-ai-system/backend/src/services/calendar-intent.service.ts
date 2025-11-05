@@ -4,11 +4,15 @@
 // Detecta intenciones de calendario y ejecuta acciones: CREAR, MODIFICAR, CANCELAR, LISTAR
 
 import OpenAI from 'openai';
-import { logger } from '../utils/logger';
-import googleCalendarService from './google-calendar.service';
+import { logger } from '../utils/logger.js';
+import googleCalendarService from './google-calendar.service.js';
+import { prisma } from '../config/database.js';
+import { emailNotificationService } from './email-notification.service.js';
 
+// 🔄 USAR OPENROUTER EN LUGAR DE OPENAI DIRECTO
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: process.env.OPENROUTER_API_KEY,
+  baseURL: process.env.OPENROUTER_BASE_URL || 'https://openrouter.ai/api/v1',
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -65,6 +69,20 @@ interface EventMatch {
   end: string;
   attendees?: any[];
   hangoutLink?: string;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔢 FUNCIÓN AUXILIAR: GENERAR CÓDIGO ÚNICO DE REUNIÓN
+// ═══════════════════════════════════════════════════════════════════════════
+function generateMeetingCode(): string {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const random = Math.floor(Math.random() * 1000)
+    .toString()
+    .padStart(3, '0');
+
+  return `REU-${year}${month}-${random}`;
 }
 
 class CalendarIntentService {
@@ -156,7 +174,7 @@ JSON de respuesta:
       });
 
       const response = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+        model: 'deepseek/deepseek-chat',
         messages,
         temperature: 0.3,
         response_format: { type: 'json_object' },
@@ -177,9 +195,11 @@ JSON de respuesta:
    * ═══════════════════════════════════════════════════════════════════════════
    * 🔎 PASO 2: BUSCAR EVENTOS EXISTENTES POR CRITERIOS
    * ═══════════════════════════════════════════════════════════════════════════
+   * 🔒 FILTRADO DE PRIVACIDAD: Recibe subscriberId para filtrar solo eventos del usuario
    */
   async searchExistingEvents(
-    criteria: EventSearchCriteria
+    criteria: EventSearchCriteria,
+    subscriberId?: string // 🔒 ID del suscriptor para filtrado
   ): Promise<EventMatch[]> {
     try {
       const timeMin = criteria.dateStart
@@ -190,10 +210,12 @@ JSON de respuesta:
         ? new Date(criteria.dateEnd + 'T23:59:59').toISOString()
         : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(); // +30 días
 
+      // 🔒 Pasar subscriberId para filtrar eventos
       const events = await googleCalendarService.listEvents({
         timeMin,
         timeMax,
         maxResults: 50,
+        subscriberId, // 🔒 Filtrar por usuario
       });
 
       logger.info(`📊 Eventos encontrados en rango: ${events.length}`);
@@ -258,39 +280,89 @@ JSON de respuesta:
       }
 
       if (modifications.newDate || modifications.newTime) {
-        const currentStart = new Date(currentEvent.start.dateTime || currentEvent.start.date);
+        // Obtener fecha/hora actual del evento
+        const currentStartISO = currentEvent.start.dateTime || currentEvent.start.date;
 
-        let year = currentStart.getFullYear();
-        let month = currentStart.getMonth();
-        let day = currentStart.getDate();
-        let hour = currentStart.getHours();
-        let minute = currentStart.getMinutes();
+        logger.info('📅 Evento original ISO:', currentStartISO);
 
+        // Parsear fecha usando Date, que manejará automáticamente UTC/timezone
+        const currentStartDate = new Date(currentStartISO);
+
+        // Convertir a timezone Lima y extraer componentes
+        const limaFormatter = new Intl.DateTimeFormat('en-US', {
+          timeZone: 'America/Lima',
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false,
+        });
+
+        const limaParts = limaFormatter.formatToParts(currentStartDate);
+        const limaData: any = {};
+        limaParts.forEach(part => {
+          if (part.type !== 'literal') {
+            limaData[part.type] = part.value;
+          }
+        });
+
+        let year = parseInt(limaData.year);
+        let month = parseInt(limaData.month);
+        let day = parseInt(limaData.day);
+        let hour = parseInt(limaData.hour);
+        let minute = parseInt(limaData.minute);
+
+        logger.info('📅 Hora original del evento en Lima:', {
+          year, month, day, hour, minute,
+          formatted: `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')} ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
+        });
+
+        // Aplicar nueva fecha si se proporciona
         if (modifications.newDate) {
-          const newDate = new Date(modifications.newDate);
-          year = newDate.getFullYear();
-          month = newDate.getMonth();
-          day = newDate.getDate();
+          const newDateMatch = modifications.newDate.match(/^(\d{4})-(\d{2})-(\d{2})/);
+          if (newDateMatch) {
+            year = parseInt(newDateMatch[1]);
+            month = parseInt(newDateMatch[2]);
+            day = parseInt(newDateMatch[3]);
+          }
         }
 
+        // Aplicar nueva hora si se proporciona
         if (modifications.newTime) {
           const [h, m] = modifications.newTime.split(':');
           hour = parseInt(h);
           minute = parseInt(m);
         }
 
-        const startDateTime = new Date(year, month, day, hour, minute);
+        // Construir string ISO directamente en formato America/Lima (UTC-5)
+        const startDateTimeISO = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00-05:00`;
+
+        logger.info('📅 Nueva fecha/hora construida:', {
+          startDateTimeISO,
+          year, month, day, hour, minute,
+          readable: `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')} ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
+        });
+
+        // Calcular fecha de fin (sumando duración)
         const durationMinutes = modifications.newDuration || 60;
-        const endDateTime = new Date(startDateTime.getTime() + durationMinutes * 60000);
+        const startTimeMinutes = hour * 60 + minute;
+        const endTimeMinutes = startTimeMinutes + durationMinutes;
+        const endHour = Math.floor(endTimeMinutes / 60);
+        const endMinute = endTimeMinutes % 60;
+
+        const endDateTimeISO = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(endHour).padStart(2, '0')}:${String(endMinute).padStart(2, '0')}:00-05:00`;
 
         updatedData.start = {
-          dateTime: startDateTime.toISOString().slice(0, 19) + '-05:00',
+          dateTime: startDateTimeISO,
           timeZone: 'America/Lima',
         };
         updatedData.end = {
-          dateTime: endDateTime.toISOString().slice(0, 19) + '-05:00',
+          dateTime: endDateTimeISO,
           timeZone: 'America/Lima',
         };
+
+        logger.info('✅ Datos de fecha/hora actualizados:', updatedData.start, updatedData.end);
       }
 
       // Asegurar que siempre envíe notificaciones
@@ -302,6 +374,34 @@ JSON de respuesta:
         id: updatedEvent.id,
         summary: updatedEvent.summary,
       });
+
+      // ═══════════════════════════════════════════════════════════════
+      // 💾 ACTUALIZAR REUNIÓN EN BASE DE DATOS
+      // ═══════════════════════════════════════════════════════════════
+      try {
+        const dbUpdateData: any = {
+          status: 'RESCHEDULED',
+          updatedAt: new Date()
+        };
+
+        if (modifications.newSummary) {
+          dbUpdateData.topic = modifications.newSummary;
+        }
+
+        if (modifications.newDate || modifications.newTime) {
+          dbUpdateData.scheduledAt = new Date(updatedData.start.dateTime);
+        }
+
+        await prisma.meeting.updateMany({
+          where: { calendarEventId: eventId },
+          data: dbUpdateData
+        });
+
+        logger.info(`✅ Reunión con eventId ${eventId} actualizada en BD`);
+      } catch (dbError: any) {
+        logger.error('❌ Error actualizando reunión en BD:', dbError);
+        // No lanzar error - evento ya está actualizado en Google Calendar
+      }
 
       return {
         success: true,
@@ -333,6 +433,26 @@ JSON de respuesta:
 
       logger.info('✅ Evento cancelado exitosamente:', eventId);
 
+      // ═══════════════════════════════════════════════════════════════
+      // 💾 ACTUALIZAR REUNIÓN COMO CANCELADA EN BASE DE DATOS
+      // ═══════════════════════════════════════════════════════════════
+      try {
+        await prisma.meeting.updateMany({
+          where: { calendarEventId: eventId },
+          data: {
+            status: 'CANCELLED',
+            cancelledAt: new Date(),
+            cancellationReason: 'Cancelada por solicitud del cliente',
+            updatedAt: new Date()
+          }
+        });
+
+        logger.info(`✅ Reunión con eventId ${eventId} marcada como CANCELADA en BD`);
+      } catch (dbError: any) {
+        logger.error('❌ Error actualizando estado de reunión en BD:', dbError);
+        // No lanzar error - evento ya está eliminado de Google Calendar
+      }
+
       return {
         success: true,
         message: 'Cita cancelada correctamente',
@@ -350,16 +470,22 @@ JSON de respuesta:
    * ═══════════════════════════════════════════════════════════════════════════
    * 📋 LISTAR AGENDA DEL USUARIO
    * ═══════════════════════════════════════════════════════════════════════════
+   * 🔒 FILTRADO DE PRIVACIDAD: Recibe subscriberId para filtrar solo eventos del usuario
    */
-  async listUserAgenda(timeRange: 'hoy' | 'mañana' | 'semana' | 'mes' = 'semana'): Promise<string> {
+  async listUserAgenda(
+    timeRange: 'hoy' | 'mañana' | 'semana' | 'mes' = 'semana',
+    subscriberId?: string // 🔒 ID del suscriptor para filtrado
+  ): Promise<string> {
     try {
       let events: any[] = [];
 
       if (timeRange === 'hoy') {
-        events = await googleCalendarService.getTodayEvents();
+        // 🔒 Filtrar por subscriberId
+        events = await googleCalendarService.getTodayEvents(subscriberId);
       } else {
         const days = timeRange === 'mañana' ? 1 : timeRange === 'semana' ? 7 : 30;
-        events = await googleCalendarService.getUpcomingEvents(days);
+        // 🔒 Filtrar por subscriberId
+        events = await googleCalendarService.getUpcomingEvents(days, subscriberId);
       }
 
       if (events.length === 0) {
@@ -407,11 +533,13 @@ JSON de respuesta:
    * ═══════════════════════════════════════════════════════════════════════════
    * 🔍 BUSCAR EVENTOS SIMILARES (PREVENCIÓN DE DUPLICADOS)
    * ═══════════════════════════════════════════════════════════════════════════
+   * 🔒 FILTRADO DE PRIVACIDAD: Recibe subscriberId para filtrar solo eventos del usuario
    */
   async findSimilarEvents(
     summary: string,
     date: string,
-    timeDelta: number = 2 // Buscar ±2 días
+    timeDelta: number = 2, // Buscar ±2 días
+    subscriberId?: string // 🔒 ID del suscriptor para filtrado
   ): Promise<EventMatch[]> {
     try {
       const targetDate = new Date(date);
@@ -421,10 +549,12 @@ JSON de respuesta:
       const endDate = new Date(targetDate);
       endDate.setDate(endDate.getDate() + timeDelta);
 
+      // 🔒 Pasar subscriberId para filtrar eventos
       const events = await googleCalendarService.listEvents({
         timeMin: startDate.toISOString(),
         timeMax: endDate.toISOString(),
         maxResults: 50,
+        subscriberId, // 🔒 Filtrar por usuario
       });
 
       // Filtrar por similitud de summary
@@ -477,41 +607,101 @@ FECHA Y HORA ACTUAL EN PERÚ (America/Lima):
 ${peruTime}
 ${now.toLocaleString('es-PE', { timeZone: 'America/Lima' })}
 
-Tu trabajo es analizar el mensaje del usuario y determinar si quiere agendar una cita, reunión, llamada o evento.
+Tu trabajo es analizar el mensaje del usuario Y EL CONTEXTO CONVERSACIONAL para determinar si quiere agendar una cita, reunión, llamada o evento.
 
-PALABRAS CLAVE DE INTENCIÓN:
-- agendar, agenda, agendame, programar, reservar, apartar
-- cita, reunión, llamada, meet, meeting, junta, encuentro
-- mañana, hoy, tarde, semana, mes, día, hora
-- "para el...", "el día...", "a las..."
+REGLAS DE DETECCIÓN (PRIORIDAD EN ORDEN):
 
-Si detectas intención de agendar, extrae:
-1. Título/asunto de la reunión (si no lo menciona, usa "Reunión con NYNEL MKT")
-2. Fecha (convierte expresiones como "mañana", "pasado mañana" a formato ISO)
+1. **CONTINUACIÓN DE AGENDAMIENTO EXISTENTE** (MUY IMPORTANTE):
+   - Si en mensajes PREVIOS el asistente ya mencionó hora/fecha de cita
+   - Y está pidiendo confirmación, email, o datos adicionales
+   - Y el usuario responde con email, "sí", "claro", "ok", "perfecto" o información solicitada
+   - ENTONCES → hasCalendarIntent: TRUE
+   - Extrae fecha/hora de los mensajes PREVIOS del asistente
+
+2. **NUEVA SOLICITUD DE AGENDAMIENTO**:
+   PALABRAS CLAVE:
+   - agendar, agenda, agendame, programar, reservar, apartar
+   - cita, reunión, llamada, meet, meeting, junta, encuentro
+   - mañana, hoy, tarde, semana, mes, día, hora
+   - "para el...", "el día...", "a las..."
+
+EXTRACCIÓN DE DATOS:
+1. Título/asunto (default: "Reunión con NYNEL MKT")
+2. Fecha (convierte expresiones relativas a formato ISO YYYY-MM-DD)
 3. Hora (formato 24h: HH:mm)
-4. Duración estimada en minutos (por defecto 60 min)
-5. Si menciona "meet", "videollamada", "virtual" → needsMeet: true
+4. Duración en minutos (default: 60)
+5. needsMeet: true si menciona "meet"/"videollamada"/"virtual"
+6. **DESCRIPCIÓN DETALLADA** (MUY IMPORTANTE):
+   Genera una descripción profesional y completa incluyendo TODO lo relevante del contexto:
 
-IMPORTANTE:
-- Si dice "hoy", usa la fecha de HOY
-- Si dice "mañana", suma 1 día a HOY
-- Si dice "pasado mañana", suma 2 días
-- Si dice "el lunes", "el martes", etc., calcula la fecha del próximo día de esa semana
-- Si no menciona hora, pregunta en tu respuesta
-- Si no menciona fecha, pregunta en tu respuesta
+   📋 **INFORMACIÓN A INCLUIR EN description:**
+   - **Motivo principal** de la reunión (consulta, cotización, proyecto específico)
+   - **Servicios de interés** mencionados (desarrollo web, marketing digital, SEO, etc.)
+   - **Presupuesto aproximado** si fue mencionado (ej: "S/3,000 - S/5,000")
+   - **Requerimientos técnicos** específicos (lenguajes, plataformas, características)
+   - **Objetivos del cliente** (aumentar ventas, mejorar presencia, automatizar, etc.)
+   - **Información del prospecto** (nombre, empresa, industria si fue mencionado)
+   - **Urgencia o timeline** (fecha de inicio deseada, plazos importantes)
+   - **Contexto adicional** relevante de la conversación
+
+   📝 **FORMATO DE LA DESCRIPCIÓN:**
+
+   📌 MOTIVO: [Breve descripción del motivo]
+
+   💼 SERVICIOS DE INTERÉS:
+   • [Servicio 1]
+   • [Servicio 2]
+
+   💰 PRESUPUESTO ESTIMADO: [S/X - S/Y] o [Por definir]
+
+   🎯 OBJETIVOS:
+   • [Objetivo 1]
+   • [Objetivo 2]
+
+   🔧 REQUERIMIENTOS TÉCNICOS:
+   • [Requerimiento 1]
+   • [Requerimiento 2]
+
+   📞 INFORMACIÓN DEL CLIENTE:
+   • Nombre: [Nombre si se conoce]
+   • Empresa: [Empresa si se conoce]
+   • Email: [Email si fue proporcionado]
+
+   ⏰ URGENCIA: [Alta/Media/Baja] - [Detalles de timeline]
+
+   📝 NOTAS ADICIONALES:
+   [Cualquier información relevante adicional del contexto]
+
+   ⚠️ INSTRUCCIONES CRÍTICAS PARA description:
+   - Si NO hay información para una sección, omítela (no pongas "No especificado")
+   - Extrae información de TODO el historial de conversación
+   - Sé específico y profesional
+   - Incluye números, montos y detalles exactos cuando estén disponibles
+   - Si el cliente mencionó problemas/necesidades, inclúyelos
+
+CONVERSIÓN DE FECHAS:
+- "hoy" → fecha actual
+- "mañana" → fecha actual + 1 día
+- "pasado mañana" → fecha actual + 2 días
+- "lunes", "martes", etc. → próximo día de esa semana
+
+IMPORTANTE PARA CONTINUACIÓN:
+- Busca en mensajes previos frases como "Te confirmo la cita para...", "Te agendo para...", "¿Tu email es...?"
+- Si encuentras hora/fecha en mensajes previos del asistente, úsalas
+- Si el mensaje actual es solo un email o confirmación, aún así detecta intención si hay contexto previo
 
 Responde en JSON:
 {
   "hasCalendarIntent": true/false,
   "eventDetails": {
     "summary": "Título de la reunión",
-    "description": "Descripción o motivo",
+    "description": "Descripción DETALLADA siguiendo el formato especificado arriba",
     "date": "2025-01-28",
     "time": "15:00",
     "duration": 60,
     "needsMeet": true/false
   },
-  "extractedInfo": "Resumen de lo que entendiste"
+  "extractedInfo": "Resumen de lo que entendiste (menciona si es continuación)"
 }`;
 
       const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
@@ -533,7 +723,7 @@ Responde en JSON:
       });
 
       const response = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+        model: 'deepseek/deepseek-chat',
         messages,
         temperature: 0.3,
         response_format: { type: 'json_object' },
@@ -554,10 +744,12 @@ Responde en JSON:
    * ═══════════════════════════════════════════════════════════════════════════
    * ➕ CREAR EVENTO DE CALENDARIO
    * ═══════════════════════════════════════════════════════════════════════════
+   * 🔒 FILTRADO DE PRIVACIDAD: Recibe subscriberId para asociar evento al usuario
    */
   async createCalendarEvent(
     eventDetails: CalendarIntentResult['eventDetails'],
-    contactEmail?: string
+    contactEmail?: string,
+    subscriberId?: string // 🔒 ID del suscriptor para filtrado
   ): Promise<CalendarEventCreated> {
     try {
       if (!eventDetails) {
@@ -583,9 +775,20 @@ Responde en JSON:
         { email: 'empresarial@nynelmkt.com', responseStatus: 'accepted' }, // SIEMPRE incluir
       ];
 
-      // Agregar email del contacto si existe y es diferente
-      if (contactEmail && contactEmail !== 'empresarial@nynelmkt.com') {
-        attendees.push({ email: contactEmail });
+      // Agregar email del contacto si existe, es válido y es diferente
+      // ⚠️ Validar que NO sea un placeholder de ManyChat ni email inválido
+      const isValidEmail = (email: string) => {
+        if (!email || email.includes('{{') || email.includes('}}')) return false;
+        if (!email.includes('@') || !email.includes('.')) return false;
+        return true;
+      };
+
+      if (
+        contactEmail &&
+        contactEmail !== 'empresarial@nynelmkt.com' &&
+        isValidEmail(contactEmail)
+      ) {
+        attendees.push({ email: contactEmail, responseStatus: 'needsAction' });
       }
 
       const eventData = {
@@ -609,12 +812,14 @@ Responde en JSON:
         },
         // Asegurar que se envíen notificaciones por email
         sendUpdates: 'all',
+        // 🔒 FILTRADO DE PRIVACIDAD: Asociar evento al usuario
+        subscriberId, // 🔒 ID del suscriptor
       };
 
       // ═══════════════════════════════════════════════════════════════
       // 📹 SIEMPRE CREAR CON GOOGLE MEET (FORZADO)
       // ═══════════════════════════════════════════════════════════════
-      logger.info('📹 Creando evento con Google Meet (forzado)...');
+      logger.info(`📹 Creando evento con Google Meet (forzado)${subscriberId ? ` para subscriber: ${subscriberId}` : ''}...`);
       const createdEvent = await googleCalendarService.createEventWithMeet(eventData);
 
       logger.info('✅ Evento creado exitosamente:', {
@@ -622,6 +827,66 @@ Responde en JSON:
         htmlLink: createdEvent.htmlLink,
         hangoutLink: createdEvent.hangoutLink,
       });
+
+      // ═══════════════════════════════════════════════════════════════
+      // 💾 GUARDAR REUNIÓN EN BASE DE DATOS
+      // ═══════════════════════════════════════════════════════════════
+      try {
+        const meetingCode = generateMeetingCode();
+
+        // Buscar o crear subscriber
+        const subscriber = await prisma.subscriber.upsert({
+          where: { subscriberId: eventDetails.description || 'UNKNOWN' },
+          update: { lastActiveAt: new Date() },
+          create: {
+            subscriberId: eventDetails.description || `SUBSCRIBER_${Date.now()}`,
+            platform: 'WHATSAPP',
+            firstName: eventDetails.summary.split(' ')[0] || 'Cliente',
+            lastName: eventDetails.summary.split(' ').slice(1).join(' ') || '',
+            email: contactEmail || null,
+            leadStatus: 'CONTACTED',
+            priority: 'NORMAL'
+          }
+        });
+
+        await prisma.meeting.create({
+          data: {
+            meetingCode,
+            subscriberId: subscriber.id,
+            type: 'CONSULTATION', // Por defecto consulta inicial
+            topic: eventDetails.summary,
+            description: eventDetails.description || 'Reunión agendada por el bot',
+            scheduledAt: new Date(startDateTime),
+            duration: durationMinutes,
+            timezone: 'America/Lima',
+            meetUrl: createdEvent.hangoutLink || null,
+            calendarEventId: createdEvent.id,
+            status: 'SCHEDULED',
+            reminderSent: false,
+            agenda: `Reunión programada para: ${eventDetails.summary}`
+          }
+        });
+
+        logger.info(`✅ Reunión ${meetingCode} guardada en base de datos`);
+
+        // ═══════════════════════════════════════════════════════════════
+        // 📧 ENVIAR NOTIFICACIÓN AL EQUIPO POR EMAIL
+        // ═══════════════════════════════════════════════════════════════
+        await emailNotificationService.notifyNewMeeting({
+          meetingCode,
+          clientName: `${subscriber.firstName} ${subscriber.lastName}`.trim(),
+          clientPhone: subscriber.phone || 'No proporcionado',
+          topic: eventDetails.summary,
+          scheduledAt: new Date(startDateTime),
+          duration: durationMinutes,
+          meetUrl: createdEvent.hangoutLink || '',
+          description: eventDetails.description,
+        });
+
+      } catch (dbError: any) {
+        logger.error('❌ Error guardando reunión en BD:', dbError);
+        // No lanzar error - evento ya está en Google Calendar
+      }
 
       return {
         success: true,
@@ -643,11 +908,13 @@ Responde en JSON:
    * ═══════════════════════════════════════════════════════════════════════════
    * 🎯 PROCESO COMPLETO: DETECTAR INTENCIÓN Y CREAR EVENTO SI ES NECESARIO
    * ═══════════════════════════════════════════════════════════════════════════
+   * 🔒 FILTRADO DE PRIVACIDAD: Recibe subscriberId para filtrar eventos por usuario
    */
   async processCalendarIntent(
     userMessage: string,
     conversationHistory?: Array<{ role: string; content: string }>,
-    contactEmail?: string
+    contactEmail?: string,
+    subscriberId?: string // 🔒 ID del suscriptor para filtrado
   ): Promise<{
     hasIntent: boolean;
     eventCreated: boolean;
@@ -676,11 +943,13 @@ Responde en JSON:
 
         try {
           // Obtener próximos 5 slots disponibles (priorizando hoy/mañana)
+          // 🔒 Pasar subscriberId para filtrar eventos al calcular disponibilidad
           const availableSlots = await googleCalendarService.getNextAvailableSlots(
             5, // cantidad de slots
             { start: '09:00', end: '18:00' }, // horario laboral
             60, // duración 60min
-            7 // buscar en los próximos 7 días
+            7, // buscar en los próximos 7 días
+            subscriberId // 🔒 Filtrar por usuario
           );
 
           if (availableSlots.length === 0) {
@@ -741,9 +1010,12 @@ Responde en JSON:
       }
 
       // 3. 🔍 BUSCAR EVENTOS SIMILARES PARA PREVENIR DUPLICADOS
+      // 🔒 Pasar subscriberId para buscar solo en eventos del usuario
       const similarEvents = await this.findSimilarEvents(
         intentResult.eventDetails.summary,
-        intentResult.eventDetails.date
+        intentResult.eventDetails.date,
+        2, // timeDelta
+        subscriberId // 🔒 Filtrar por usuario
       );
 
       if (similarEvents.length > 0) {
@@ -780,9 +1052,11 @@ Responde en JSON:
       }
 
       // 4. Crear el evento si no hay duplicados
+      // 🔒 Pasar subscriberId para asociar evento al usuario
       const eventResult = await this.createCalendarEvent(
         intentResult.eventDetails,
-        contactEmail
+        contactEmail,
+        subscriberId // 🔒 Asociar al usuario
       );
 
       if (!eventResult.success) {

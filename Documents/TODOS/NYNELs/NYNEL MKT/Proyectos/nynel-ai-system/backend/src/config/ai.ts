@@ -1,74 +1,42 @@
 // ═══════════════════════════════════════════════════════════════════════════
-// 🤖 CONFIGURACIÓN DE MODELOS DE IA
+// 🤖 CONFIGURACIÓN DE IA - SOLO OPENROUTER + DEEPSEEK V3
 // ═══════════════════════════════════════════════════════════════════════════
 
-// TEMPORALMENTE COMENTADO - El import de LangChain bloquea el startup
-// import { ChatGroq } from '@langchain/groq';
 import OpenAI from 'openai';
-import { logger } from '@/utils/logger';
+import { logger } from '#/utils/logger.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Validación de API Keys
+// Validación de API Key
 // ─────────────────────────────────────────────────────────────────────────────
 
-if (!process.env.GROQ_API_KEY) {
-  logger.warn('⚠️  GROQ_API_KEY no configurado - Groq/LLaMA deshabilitado (sistema usa GPT-4o por defecto)');
+if (!process.env.OPENROUTER_API_KEY) {
+  throw new Error('❌ OPENROUTER_API_KEY no configurado - Sistema no puede iniciar');
 }
 
-if (!process.env.OPENAI_API_KEY) {
-  logger.error('❌ OPENAI_API_KEY no está configurado en .env');
-  throw new Error('OPENAI_API_KEY es requerido para GPT-4o, Whisper y Vision');
-}
+logger.info('✅ OpenRouter API Key configurado correctamente');
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GROQ - LLaMA 3.3 70B (para conversación principal) - LAZY LOADING
-// ─────────────────────────────────────────────────────────────────────────────
-
-// TEMPORALMENTE DESHABILITADO - Groq se cargará bajo demanda
-// export const groqModel = new ChatGroq({
-//   apiKey: process.env.GROQ_API_KEY,
-//   model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
-//   temperature: 0.7,
-//   maxTokens: 2048,
-//   streaming: false,
-// });
-
-logger.info(`✅ Groq configurado (lazy loading): ${process.env.GROQ_MODEL || 'llama-3.3-70b-versatile'}`);
-
-// ─────────────────────────────────────────────────────────────────────────────
-// OPENAI - Whisper (audio) + GPT-4 Vision (imágenes)
+// OPENROUTER - DeepSeek v3 (ÚNICO PROVEEDOR DE IA)
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: process.env.OPENROUTER_API_KEY,
+  baseURL: 'https://openrouter.ai/api/v1',
+  defaultHeaders: {
+    'HTTP-Referer': 'https://api.nyneldigital.com',
+    'X-Title': 'Nynel AI System',
+  },
 });
 
+logger.info('✅ Cliente OpenAI configurado para usar OpenRouter + DeepSeek v3');
+
 // ─────────────────────────────────────────────────────────────────────────────
-// Configuración de Modelos
+// Configuración del Modelo
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const AI_CONFIG = {
-  // Groq LLaMA
-  groq: {
-    model: process.env.GROQ_MODEL || 'llama-3.3-70b-versatile',
-    temperature: 0.7,
-    maxTokens: 2048,
-    topP: 1,
-  },
-
-  // OpenAI Whisper (transcripción de audio)
-  whisper: {
-    model: process.env.OPENAI_WHISPER_MODEL || 'whisper-1',
-    language: 'es', // Español por defecto
-    temperature: 0,
-  },
-
-  // OpenAI GPT-4 Vision (análisis de imágenes)
-  vision: {
-    model: process.env.OPENAI_VISION_MODEL || 'gpt-4-vision-preview',
-    maxTokens: 1024,
-    temperature: 0.3,
-  },
+  // DeepSeek v3 via OpenRouter (ÚNICO MODELO)
+  model: 'deepseek/deepseek-chat-v3.1',
 
   // Configuración de agentes
   agents: {
@@ -96,17 +64,28 @@ export const AI_CONFIG = {
 
   // Límites de procesamiento
   limits: {
-    maxAudioSizeMB: 25, // Whisper soporta hasta 25MB
-    maxImageSizeMB: 20,
     maxTextLength: 8000, // Caracteres
     maxConversationHistory: 10, // Mensajes a incluir en contexto
+    maxAudioSizeMB: 25, // Tamaño máximo de audio en MB
   },
 
   // Timeouts (en ms)
   timeouts: {
-    groq: 30000, // 30 segundos
-    whisper: 60000, // 60 segundos
-    vision: 45000, // 45 segundos
+    chat: 30000, // 30 segundos
+  },
+
+  // Configuración para procesamiento de audio (DeepSeek v3)
+  whisper: {
+    model: 'deepseek/deepseek-chat-v3.1',
+    language: 'es',
+    temperature: 0.3,
+  },
+
+  // Configuración para procesamiento de imágenes (DeepSeek v3)
+  vision: {
+    model: 'deepseek/deepseek-chat-v3.1',
+    maxTokens: 1500,
+    temperature: 0.5,
   },
 };
 
@@ -186,23 +165,6 @@ Estilo: Creativo, estratégico, orientado a resultados.`,
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Crea un modelo Groq con configuración personalizada
- * TEMPORALMENTE DESHABILITADO - lazy loading
- */
-// export function createGroqModel(config?: {
-//   temperature?: number;
-//   maxTokens?: number;
-//   model?: string;
-// }): ChatGroq {
-//   return new ChatGroq({
-//     apiKey: process.env.GROQ_API_KEY,
-//     model: config?.model || AI_CONFIG.groq.model,
-//     temperature: config?.temperature ?? AI_CONFIG.groq.temperature,
-//     maxTokens: config?.maxTokens ?? AI_CONFIG.groq.maxTokens,
-//   });
-// }
-
-/**
  * Trunca texto si excede el límite
  */
 export function truncateText(text: string, maxLength: number = AI_CONFIG.limits.maxTextLength): string {
@@ -214,11 +176,9 @@ export function truncateText(text: string, maxLength: number = AI_CONFIG.limits.
 }
 
 /**
- * Valida el tamaño de un archivo
+ * Valida que un archivo no exceda el tamaño máximo permitido
  */
-export function validateFileSize(sizeInBytes: number, type: 'audio' | 'image'): boolean {
-  const sizeMB = sizeInBytes / (1024 * 1024);
-  const maxSize = type === 'audio' ? AI_CONFIG.limits.maxAudioSizeMB : AI_CONFIG.limits.maxImageSizeMB;
-
-  return sizeMB <= maxSize;
+export function validateFileSize(fileSizeBytes: number, maxSizeMB: number): boolean {
+  const fileSizeMB = fileSizeBytes / (1024 * 1024);
+  return fileSizeMB <= maxSizeMB;
 }

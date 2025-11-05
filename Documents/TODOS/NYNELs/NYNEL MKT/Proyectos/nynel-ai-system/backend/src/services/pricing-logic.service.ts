@@ -5,7 +5,7 @@
 // Implementa multiplicadores inteligentes según complejidad del proyecto
 // ═══════════════════════════════════════════════════════════════════════════
 
-import { logger } from '../utils/logger';
+import { logger } from '../utils/logger.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 📋 CATÁLOGO DE SERVICIOS REALES DE NYNEL MKT (nynelmkt.com)

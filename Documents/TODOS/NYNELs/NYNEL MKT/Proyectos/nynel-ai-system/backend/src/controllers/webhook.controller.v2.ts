@@ -14,13 +14,13 @@
 // - ✅ Solución oficial recomendada por documentación de ManyChat
 
 import { Request, Response } from 'express';
-import { prisma } from '../config/database';
+import { prisma } from '../config/database.js';
 import { Platform, MessageType, MessageRole, LeadStatus, Prisma } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
-import { logger } from '../utils/logger';
-import { manyChatAPI } from '../services/manychat-api.service';
-import { masterConversationalAI } from '../services/master-conversational-ai.service';
-import { redis, setCache, getCache, deleteCache } from '../config/redis';
+import { logger } from '../utils/logger.js';
+import { manyChatAPI } from '../services/manychat-api.service.js';
+import { masterConversationalAI } from '../services/master-conversational-ai.service.js';
+import { redis, setCache, getCache, deleteCache } from '../config/redis.js';
 import { z } from 'zod';
 
 // ═══════════════════════════════════════════════════════════════════════════

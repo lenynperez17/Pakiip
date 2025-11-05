@@ -8,6 +8,12 @@ import { google } from 'googleapis';
 import { OAuth2Client } from 'google-auth-library';
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
+import { logger } from '#/utils/logger.js';
+
+// Obtener __dirname en ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Tipos para eventos de calendario
 export interface CalendarEvent {
@@ -34,6 +40,8 @@ export interface CalendarEvent {
       conferenceSolutionKey: { type: string };
     };
   };
+  // 🔒 FILTRADO DE PRIVACIDAD: ID del suscriptor para filtrar eventos por usuario
+  subscriberId?: string;
 }
 
 export interface EventSearchParams {
@@ -41,6 +49,8 @@ export interface EventSearchParams {
   timeMax?: string; // Fecha máxima
   q?: string; // Búsqueda por texto
   maxResults?: number;
+  // 🔒 FILTRADO DE PRIVACIDAD: ID del suscriptor para filtrar eventos
+  subscriberId?: string;
 }
 
 // Interfaz para slots de tiempo disponibles
@@ -102,15 +112,15 @@ class GoogleCalendarService {
       try {
         const token = JSON.parse(fs.readFileSync(this.tokenPath, 'utf8'));
         this.oauth2Client.setCredentials(token);
-        console.log('✅ Token de Google Calendar cargado correctamente');
+        logger.info('✅ Token de Google Calendar cargado correctamente');
       } catch (error) {
-        console.log('⚠️ No se encontró token guardado. Se requiere autenticación.');
+        logger.info('⚠️ No se encontró token guardado. Se requiere autenticación.');
       }
 
       // Inicializar API de Calendar
       this.calendar = google.calendar({ version: 'v3', auth: this.oauth2Client });
     } catch (error) {
-      console.error('❌ Error al inicializar Google Calendar:', error);
+      logger.error('❌ Error al inicializar Google Calendar:', error);
       throw error;
     }
   }
@@ -142,9 +152,9 @@ class GoogleCalendarService {
       }
       fs.writeFileSync(this.tokenPath, JSON.stringify(tokens, null, 2));
 
-      console.log('✅ Tokens de Google Calendar guardados correctamente');
+      logger.info('✅ Tokens de Google Calendar guardados correctamente');
     } catch (error) {
-      console.error('❌ Error al obtener tokens:', error);
+      logger.error('❌ Error al obtener tokens:', error);
       throw error;
     }
   }
@@ -173,22 +183,23 @@ class GoogleCalendarService {
       const fiveMinutes = 5 * 60 * 1000;
 
       if (expiryDate.getTime() - now.getTime() < fiveMinutes) {
-        console.log('🔄 Refrescando token de Google Calendar...');
+        logger.info('🔄 Refrescando token de Google Calendar...');
         const { credentials: newCredentials } = await this.oauth2Client.refreshAccessToken();
         this.oauth2Client.setCredentials(newCredentials);
 
         // Guardar nuevos tokens
         fs.writeFileSync(this.tokenPath, JSON.stringify(newCredentials, null, 2));
-        console.log('✅ Token refrescado correctamente');
+        logger.info('✅ Token refrescado correctamente');
       }
     } catch (error) {
-      console.error('❌ Error al refrescar token:', error);
+      logger.error('❌ Error al refrescar token:', error);
       throw error;
     }
   }
 
   /**
    * Crear un evento en el calendario
+   * 🔒 INCLUYE subscriberId en privateExtendedProperties para filtrado seguro
    */
   public async createEvent(eventData: CalendarEvent): Promise<any> {
     try {
@@ -205,23 +216,46 @@ class GoogleCalendarService {
         eventData.end.timeZone = timezone;
       }
 
+      // 🔒 PRIVACIDAD: Preparar evento con subscriberId en propiedades privadas
+      const eventResource: any = {
+        summary: eventData.summary,
+        description: eventData.description,
+        location: eventData.location,
+        start: eventData.start,
+        end: eventData.end,
+        attendees: eventData.attendees,
+        reminders: eventData.reminders,
+        conferenceData: eventData.conferenceData,
+      };
+
+      // 🔒 Si hay subscriberId, guardarlo en propiedades privadas (NO visible para asistentes)
+      if (eventData.subscriberId) {
+        eventResource.extendedProperties = {
+          private: {
+            subscriberId: eventData.subscriberId,
+          },
+        };
+        logger.info(`🔒 Creando evento con filtro de privacidad: subscriberId=${eventData.subscriberId}`);
+      }
+
       const event = await this.calendar.events.insert({
         calendarId,
-        resource: eventData,
+        resource: eventResource,
         conferenceDataVersion: eventData.conferenceData ? 1 : 0, // Para Google Meet
         sendUpdates: 'all' // Enviar notificaciones a asistentes
       });
 
-      console.log('✅ Evento creado:', event.data.htmlLink);
+      logger.info('✅ Evento creado:', event.data.htmlLink);
       return event.data;
     } catch (error) {
-      console.error('❌ Error al crear evento:', error);
+      logger.error('❌ Error al crear evento:', error);
       throw error;
     }
   }
 
   /**
    * Listar eventos del calendario
+   * 🔒 FILTRA por subscriberId si se proporciona (evita mostrar citas de otros usuarios)
    */
   public async listEvents(params: EventSearchParams = {}): Promise<any[]> {
     try {
@@ -230,20 +264,45 @@ class GoogleCalendarService {
       const calendarId = process.env.GOOGLE_CALENDAR_ID || 'primary';
       const timezone = process.env.GOOGLE_CALENDAR_TIMEZONE || 'America/Lima';
 
+      // Obtener TODOS los eventos del calendario (sin filtrar aún)
       const response = await this.calendar.events.list({
         calendarId,
         timeMin: params.timeMin || new Date().toISOString(),
         timeMax: params.timeMax,
-        maxResults: params.maxResults || 10,
+        maxResults: params.maxResults || 250, // Aumentado para obtener más eventos antes de filtrar
         singleEvents: true,
         orderBy: 'startTime',
         q: params.q,
         timeZone: timezone
       });
 
-      return response.data.items || [];
+      let events = response.data.items || [];
+
+      // 🔒 FILTRADO DE PRIVACIDAD: Si se proporciona subscriberId, filtrar SOLO eventos de ese usuario
+      if (params.subscriberId) {
+        const beforeFilter = events.length;
+        events = events.filter((event: any) => {
+          const eventSubscriberId = event.extendedProperties?.private?.subscriberId;
+          return eventSubscriberId === params.subscriberId;
+        });
+        const afterFilter = events.length;
+
+        logger.info(
+          `🔒 Filtrado de privacidad aplicado: subscriberId=${params.subscriberId} | ` +
+          `Total eventos: ${beforeFilter} → Eventos del usuario: ${afterFilter}`
+        );
+      } else {
+        logger.warn(
+          '⚠️ listEvents() llamado SIN subscriberId - Retornando TODOS los eventos del calendario. ' +
+          'Esto puede exponer citas de otros usuarios.'
+        );
+      }
+
+      // Limitar resultados finales al maxResults original (después del filtrado)
+      const maxResults = params.maxResults || 10;
+      return events.slice(0, maxResults);
     } catch (error) {
-      console.error('❌ Error al listar eventos:', error);
+      logger.error('❌ Error al listar eventos:', error);
       throw error;
     }
   }
@@ -263,7 +322,7 @@ class GoogleCalendarService {
 
       return response.data;
     } catch (error) {
-      console.error('❌ Error al obtener evento:', error);
+      logger.error('❌ Error al obtener evento:', error);
       throw error;
     }
   }
@@ -293,10 +352,10 @@ class GoogleCalendarService {
         sendUpdates: 'all'
       });
 
-      console.log('✅ Evento actualizado:', event.data.htmlLink);
+      logger.info('✅ Evento actualizado:', event.data.htmlLink);
       return event.data;
     } catch (error) {
-      console.error('❌ Error al actualizar evento:', error);
+      logger.error('❌ Error al actualizar evento:', error);
       throw error;
     }
   }
@@ -315,9 +374,9 @@ class GoogleCalendarService {
         sendUpdates: 'all'
       });
 
-      console.log('✅ Evento eliminado:', eventId);
+      logger.info('✅ Evento eliminado:', eventId);
     } catch (error) {
-      console.error('❌ Error al eliminar evento:', error);
+      logger.error('❌ Error al eliminar evento:', error);
       throw error;
     }
   }
@@ -330,7 +389,7 @@ class GoogleCalendarService {
       const events = await this.listEvents({ timeMin, timeMax });
       return events.length === 0;
     } catch (error) {
-      console.error('❌ Error al verificar disponibilidad:', error);
+      logger.error('❌ Error al verificar disponibilidad:', error);
       throw error;
     }
   }
@@ -344,10 +403,11 @@ class GoogleCalendarService {
    * @param date - Fecha en formato "YYYY-MM-DD" (ej: "2025-01-28")
    * @param workingHours - Horario laboral {start: "09:00", end: "18:00"}
    * @param slotDuration - Duración de cada slot en minutos (default: 60)
+   * @param subscriberId - 🔒 ID del suscriptor para filtrar solo sus eventos
    * @returns Array de TimeSlot con información de disponibilidad
    *
    * @example
-   * const slots = await getAvailableSlots("2025-01-28", {start: "09:00", end: "18:00"}, 60);
+   * const slots = await getAvailableSlots("2025-01-28", {start: "09:00", end: "18:00"}, 60, "subscriber123");
    * // Retorna: [
    * //   {startTime: "2025-01-28T09:00:00-05:00", endTime: "2025-01-28T10:00:00-05:00", available: true, displayTime: "9:00 AM"},
    * //   {startTime: "2025-01-28T10:00:00-05:00", endTime: "2025-01-28T11:00:00-05:00", available: false, displayTime: "10:00 AM"},
@@ -357,7 +417,8 @@ class GoogleCalendarService {
   public async getAvailableSlots(
     date: string, // "YYYY-MM-DD"
     workingHours: WorkingHours = { start: '09:00', end: '18:00' },
-    slotDuration: number = 60 // minutos
+    slotDuration: number = 60, // minutos
+    subscriberId?: string // 🔒 ID del suscriptor para filtrado
   ): Promise<TimeSlot[]> {
     try {
       await this.refreshTokenIfNeeded();
@@ -369,18 +430,27 @@ class GoogleCalendarService {
       const [startHour, startMinute] = workingHours.start.split(':').map(Number);
       const [endHour, endMinute] = workingHours.end.split(':').map(Number);
 
-      // Crear Date objects para inicio y fin del día laboral
-      const startOfWorkday = new Date(year, month - 1, day, startHour, startMinute, 0);
-      const endOfWorkday = new Date(year, month - 1, day, endHour, endMinute, 0);
+      // 🔧 FIX: Crear Date objects con timezone explícito usando ISO string
+      // America/Lima = UTC-5, entonces agregamos offset manualmente
+      const timezoneOffset = -5 * 60; // -5 horas en minutos para America/Lima
+
+      // Crear strings ISO con timezone offset
+      const startISOString = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(startHour).padStart(2, '0')}:${String(startMinute).padStart(2, '0')}:00-05:00`;
+      const endISOString = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(endHour).padStart(2, '0')}:${String(endMinute).padStart(2, '0')}:00-05:00`;
+
+      const startOfWorkday = new Date(startISOString);
+      const endOfWorkday = new Date(endISOString);
 
       // Obtener eventos ocupados del calendario en este rango
+      // 🔒 Pasar subscriberId para filtrar solo eventos del usuario
       const busyEvents = await this.listEvents({
         timeMin: startOfWorkday.toISOString(),
         timeMax: endOfWorkday.toISOString(),
-        maxResults: 250 // Asegurar que obtenemos todos los eventos del día
+        maxResults: 250, // Asegurar que obtenemos todos los eventos del día
+        subscriberId // 🔒 Filtrar por usuario
       });
 
-      console.log(`📅 Analizando disponibilidad para ${date}: ${busyEvents.length} eventos ocupados`);
+      logger.info(`📅 Analizando disponibilidad para ${date}: ${busyEvents.length} eventos ocupados`);
 
       // Generar todos los slots posibles del día
       const allSlots: TimeSlot[] = [];
@@ -433,11 +503,11 @@ class GoogleCalendarService {
       }
 
       const availableCount = allSlots.filter(s => s.available).length;
-      console.log(`✅ Generados ${allSlots.length} slots totales (${availableCount} disponibles, ${allSlots.length - availableCount} ocupados)`);
+      logger.info(`✅ Generados ${allSlots.length} slots totales (${availableCount} disponibles, ${allSlots.length - availableCount} ocupados)`);
 
       return allSlots;
     } catch (error) {
-      console.error('❌ Error al obtener slots disponibles:', error);
+      logger.error('❌ Error al obtener slots disponibles:', error);
       throw error;
     }
   }
@@ -452,17 +522,24 @@ class GoogleCalendarService {
    * @param workingHours - Horario laboral
    * @param slotDuration - Duración de cada slot en minutos
    * @param daysToSearch - Cuántos días hacia adelante buscar (default: 7)
+   * @param subscriberId - 🔒 ID del suscriptor para filtrar solo sus eventos
    * @returns Array de TimeSlot disponibles
    */
   public async getNextAvailableSlots(
     count: number = 5,
     workingHours: WorkingHours = { start: '09:00', end: '18:00' },
     slotDuration: number = 60,
-    daysToSearch: number = 7
+    daysToSearch: number = 7,
+    subscriberId?: string // 🔒 ID del suscriptor para filtrado
   ): Promise<TimeSlot[]> {
     try {
       const availableSlots: TimeSlot[] = [];
-      const today = new Date();
+
+      // 🔧 FIX: Obtener fecha/hora actual en timezone de Perú (America/Lima)
+      const timezone = process.env.GOOGLE_CALENDAR_TIMEZONE || 'America/Lima';
+      const nowInPeru = new Date(new Date().toLocaleString('en-US', { timeZone: timezone }));
+
+      logger.info(`🕐 Hora actual en ${timezone}: ${nowInPeru.toLocaleString('es-PE')}`);
 
       // Buscar en los próximos N días
       for (let dayOffset = 0; dayOffset < daysToSearch; dayOffset++) {
@@ -470,17 +547,17 @@ class GoogleCalendarService {
           break; // Ya encontramos suficientes slots
         }
 
-        const searchDate = new Date(today);
+        const searchDate = new Date(nowInPeru);
         searchDate.setDate(searchDate.getDate() + dayOffset);
 
-        // Formatear fecha como "YYYY-MM-DD"
+        // Formatear fecha como "YYYY-MM-DD" (en timezone de Perú)
         const dateStr = searchDate.toISOString().split('T')[0];
 
         // Obtener slots del día
-        const daySlots = await this.getAvailableSlots(dateStr, workingHours, slotDuration);
+        // 🔒 Pasar subscriberId para filtrar solo eventos del usuario
+        const daySlots = await this.getAvailableSlots(dateStr, workingHours, slotDuration, subscriberId);
 
         // Filtrar solo disponibles y que sean en el futuro (si es hoy)
-        const now = new Date();
         const futureAvailableSlots = daySlots.filter(slot => {
           if (!slot.available) return false;
 
@@ -488,7 +565,14 @@ class GoogleCalendarService {
           if (dayOffset === 0) {
             const slotTime = new Date(slot.startTime);
             const marginMs = 30 * 60 * 1000; // 30 minutos
-            return slotTime.getTime() > (now.getTime() + marginMs);
+            const isInFuture = slotTime.getTime() > (nowInPeru.getTime() + marginMs);
+
+            // Log para debugging
+            if (!isInFuture) {
+              logger.info(`⏭️ Slot pasado omitido: ${slot.displayTime} (actual: ${nowInPeru.toLocaleTimeString('es-PE')})`);
+            }
+
+            return isInFuture;
           }
 
           return true;
@@ -501,11 +585,11 @@ class GoogleCalendarService {
       // Retornar solo los primeros N slots
       const finalSlots = availableSlots.slice(0, count);
 
-      console.log(`🎯 Encontrados ${finalSlots.length} slots disponibles en los próximos ${daysToSearch} días`);
+      logger.info(`🎯 Encontrados ${finalSlots.length} slots disponibles en los próximos ${daysToSearch} días`);
 
       return finalSlots;
     } catch (error) {
-      console.error('❌ Error al buscar próximos slots:', error);
+      logger.error('❌ Error al buscar próximos slots:', error);
       throw error;
     }
   }
@@ -529,8 +613,9 @@ class GoogleCalendarService {
 
   /**
    * Buscar próximos eventos
+   * 🔒 REQUIERE subscriberId para filtrar eventos del usuario
    */
-  public async getUpcomingEvents(maxResults: number = 5): Promise<any[]> {
+  public async getUpcomingEvents(maxResults: number = 5, subscriberId?: string): Promise<any[]> {
     const now = new Date();
     const futureDate = new Date();
     futureDate.setDate(futureDate.getDate() + 30); // Próximos 30 días
@@ -538,21 +623,24 @@ class GoogleCalendarService {
     return this.listEvents({
       timeMin: now.toISOString(),
       timeMax: futureDate.toISOString(),
-      maxResults
+      maxResults,
+      subscriberId // 🔒 Pasar subscriberId para filtrado
     });
   }
 
   /**
    * Buscar eventos de hoy
+   * 🔒 REQUIERE subscriberId para filtrar eventos del usuario
    */
-  public async getTodayEvents(): Promise<any[]> {
+  public async getTodayEvents(subscriberId?: string): Promise<any[]> {
     const now = new Date();
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
 
     return this.listEvents({
       timeMin: startOfDay.toISOString(),
-      timeMax: endOfDay.toISOString()
+      timeMax: endOfDay.toISOString(),
+      subscriberId // 🔒 Pasar subscriberId para filtrado
     });
   }
 }
