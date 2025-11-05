@@ -10,17 +10,12 @@ import { getAuth, onAuthStateChanged } from 'firebase/auth';
 function WelcomePageContent() {
   const router = useRouter();
   const { appSettings, currentUser } = useAppData();
-  const [loading, setLoading] = React.useState(true);
 
   useEffect(() => {
-    // Verificar autenticación de Firebase
     const auth = getAuth();
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (!firebaseUser) {
-        // Si no hay usuario autenticado, redirigir a login
         router.replace('/login');
-      } else {
-        setLoading(false);
       }
     });
 
@@ -28,9 +23,8 @@ function WelcomePageContent() {
   }, [router]);
 
   useEffect(() => {
-    if (!currentUser || loading) return;
+    if (!currentUser) return;
 
-    // Redirigir después de 5 segundos según el rol del usuario
     const timer = setTimeout(() => {
       let redirectUrl = '/';
 
@@ -50,12 +44,12 @@ function WelcomePageContent() {
       }
 
       router.replace(redirectUrl);
-    }, 5000); // 5 segundos
+    }, 5000);
 
     return () => clearTimeout(timer);
-  }, [router, currentUser, loading]);
+  }, [router, currentUser]);
 
-  if (loading || !currentUser) {
+  if (!currentUser) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-background mx-auto px-4" style={{ maxWidth: '1600px' }}>
         <Skeleton className="h-24 w-24 rounded-full" />
@@ -65,7 +59,6 @@ function WelcomePageContent() {
     );
   }
 
-  // Generar mensaje según el rol del usuario autenticado
   let message = `¡Bienvenido de nuevo, ${currentUser.name}!`;
   let imageUrl = appSettings.welcomeImageUrl;
 
