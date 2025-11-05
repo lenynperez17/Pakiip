@@ -11,20 +11,32 @@ function WelcomePageContent() {
   const router = useRouter();
   const { appSettings, currentUser } = useAppData();
 
+  console.log('🎯 [WELCOME] Componente montado - currentUser:', currentUser ? `${currentUser.name} (${currentUser.role})` : 'NULL');
+
   useEffect(() => {
+    console.log('🔄 [WELCOME] useEffect de auth ejecutándose');
     const auth = getAuth();
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      console.log('🔐 [WELCOME] onAuthStateChanged:', firebaseUser ? firebaseUser.phoneNumber || firebaseUser.email : 'NO USER');
       if (!firebaseUser) {
+        console.log('❌ [WELCOME] No hay usuario Firebase, redirigiendo a /login');
         router.replace('/login');
+      } else {
+        console.log('✅ [WELCOME] Usuario Firebase confirmado');
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      console.log('🧹 [WELCOME] Limpiando suscripción de auth');
+      unsubscribe();
+    };
   }, [router]);
 
   useEffect(() => {
+    console.log('⏰ [WELCOME] useEffect de redirección - currentUser:', currentUser ? 'EXISTE' : 'NULL');
     if (!currentUser) return;
 
+    console.log(`🎯 [WELCOME] Iniciando timer de redirección para rol: ${currentUser.role}`);
     const timer = setTimeout(() => {
       let redirectUrl = '/';
 
@@ -43,13 +55,20 @@ function WelcomePageContent() {
           break;
       }
 
+      console.log(`🚀 [WELCOME] Redirigiendo a: ${redirectUrl}`);
       router.replace(redirectUrl);
     }, 5000);
 
-    return () => clearTimeout(timer);
+    return () => {
+      console.log('🧹 [WELCOME] Limpiando timer de redirección');
+      clearTimeout(timer);
+    };
   }, [router, currentUser]);
 
+  console.log('🎨 [WELCOME] Renderizando - currentUser:', currentUser ? 'TIENE DATOS' : 'MOSTRANDO SKELETON');
+
   if (!currentUser) {
+    console.log('⏳ [WELCOME] Mostrando skeleton mientras espera currentUser');
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-background mx-auto px-4" style={{ maxWidth: '1600px' }}>
         <Skeleton className="h-24 w-24 rounded-full" />
@@ -71,6 +90,7 @@ function WelcomePageContent() {
     imageUrl = appSettings.driverWelcomeImageUrl || appSettings.welcomeImageUrl;
   }
 
+  console.log('✨ [WELCOME] Renderizando PakiipCharacter con mensaje:', message);
   return <PakiipCharacter message={message} imageUrl={imageUrl} />;
 }
 
