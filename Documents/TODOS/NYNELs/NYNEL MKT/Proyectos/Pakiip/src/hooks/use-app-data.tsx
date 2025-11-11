@@ -3,12 +3,12 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { AppData, Vendor, Category, DeliveryDriver, User, AppSettings, Message, Product, Order, City, OrderItem, DrinkOption, Collaborator, DebtTransaction, Coordinate, DeliveryZone, Favor } from '@/lib/placeholder-data';
+import { AppData, Vendor, Category, DeliveryDriver, User, AppSettings, Message, Product, Order, City, OrderItem, DrinkOption, Admin, DebtTransaction, Coordinate, DeliveryZone, Favor } from '@/lib/placeholder-data';
 import { initializeFirebase } from '@/lib/firebase';
 import { saveAppDataToFirestore, loadAppDataFromFirestore, isFirestoreAvailable } from '@/lib/firestore-service';
 import { getAuth, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 
-type LoggedInUser = (User | Vendor | DeliveryDriver | Collaborator) & { role: 'customer' | 'vendor' | 'driver' | 'admin' };
+type LoggedInUser = (User | Vendor | DeliveryDriver | Admin) & { role: 'customer' | 'vendor' | 'driver' | 'admin' };
 
 // Estado inicial vacío - TODO se carga desde Firebase
 const emptyAppData: AppData = {
@@ -64,7 +64,7 @@ const emptyAppData: AppData = {
   },
   orders: [],
   favors: [],
-  collaborators: [],
+  admins: [],
 };
 
 // Función para inicializar Firebase si está configurado
@@ -94,7 +94,7 @@ interface AppDataContextValue extends Omit<AppData, 'currentUser'> {
   setSelectedCity: (city: string | null) => void;
   login: (email: string) => LoggedInUser | null;
   logout: () => void;
-  getUserRoles: (email: string) => Array<{role: 'customer' | 'vendor' | 'driver' | 'admin', data: User | Vendor | DeliveryDriver | Collaborator}>;
+  getUserRoles: (email: string) => Array<{role: 'customer' | 'vendor' | 'driver' | 'admin', data: User | Vendor | DeliveryDriver | Admin}>;
   switchRole: (role: 'customer' | 'vendor' | 'driver' | 'admin') => boolean;
   saveVendor: (vendor: Vendor) => void;
   deleteVendor: (vendorId: string) => void;
@@ -121,8 +121,8 @@ interface AppDataContextValue extends Omit<AppData, 'currentUser'> {
   addCreditTransaction: (driverId: string, amount: number, description: string) => void;
   addDebtTransaction: (driverId: string, amount: number, description: string) => void;
   clearDriverDebt: (driverId: string) => void;
-  saveCollaborator: (collaborator: Collaborator) => void;
-  deleteCollaborator: (collaboratorId: string) => void;
+  saveAdmin: (admin: Admin) => void;
+  deleteAdmin: (adminId: string) => void;
   markDriverPayoutAsPaid: (driverId: string, netBalance: number, ordersToMarkAsPaid: Order[]) => void;
   addFavor: (favorData: Omit<Favor, 'id' | 'date'>) => Favor;
   saveFavor: (favor: Favor) => void;
@@ -147,8 +147,6 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
     // Cargar datos al iniciar SOLO desde Firestore
     useEffect(() => {
         const initializeData = async () => {
-            console.log('🚀 Inicializando aplicación - cargando datos SOLO desde Firebase...');
-
             // Inicializar Firebase con la configuración del estado inicial
             const firebaseInitialized = tryInitializeFirebase(emptyAppData.appSettings);
 
@@ -164,58 +162,29 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
                 return;
             }
 
-            console.log('✅ Firebase inicializado, cargando datos desde Firestore...');
-
             // Cargar TODOS los datos exclusivamente desde Firestore
             const result = await loadAppDataFromFirestore(emptyAppData);
 
             if (result.success && result.data) {
-                console.log('✅ Datos cargados desde Firestore exitosamente');
                 const loadedData = { ...result.data, currentUser: undefined } as AppData;
                 setData(loadedData);
 
-                // Detectar ciudad automáticamente por geolocalización
+                // 🔍 DEBUG: Ver si los datos se cargaron
+                console.log('✅ Datos cargados desde Firestore:', {
+                    admins: loadedData.admins.length,
+                    vendors: loadedData.vendors.length,
+                    drivers: loadedData.drivers.length,
+                    users: loadedData.users.length,
+                    adminEmails: loadedData.admins.map(c => c.email)
+                });
+
+                // Detectar ciudad automáticamente
                 if (loadedData.cities.length > 0) {
-                    if ('geolocation' in navigator) {
-                        navigator.geolocation.getCurrentPosition(
-                            (position) => {
-                                const userLat = position.coords.latitude;
-                                const userLng = position.coords.longitude;
-
-                                // Encontrar la ciudad más cercana
-                                let closestCity = loadedData.cities[0];
-                                let minDistance = Number.MAX_VALUE;
-
-                                loadedData.cities.forEach(city => {
-                                    if (city.coordinates) {
-                                        const distance = Math.sqrt(
-                                            Math.pow(city.coordinates.lat - userLat, 2) +
-                                            Math.pow(city.coordinates.lng - userLng, 2)
-                                        );
-                                        if (distance < minDistance) {
-                                            minDistance = distance;
-                                            closestCity = city;
-                                        }
-                                    }
-                                });
-
-                                console.log('📍 Ciudad detectada automáticamente:', closestCity.name);
-                                _setSelectedCity(closestCity.name);
-                                setIsInitialized(true);
-                            },
-                            (error) => {
-                                console.warn('⚠️ No se pudo obtener ubicación:', error.message);
-                                _setSelectedCity(loadedData.cities[0].name);
-                                setIsInitialized(true);
-                            }
-                        );
-                    } else {
-                        // Sin geolocalización, usar primera ciudad
-                        _setSelectedCity(loadedData.cities[0].name);
-                        setIsInitialized(true);
-                    }
+                    // La detección de ciudad ahora se maneja en los componentes
+                    // individuales usando el hook useLocation()
+                    _setSelectedCity(loadedData.cities[0].name);
+                    setIsInitialized(true);
                 } else {
-                    console.warn('⚠️ No hay ciudades en Firebase, crea ciudades primero');
                     setIsInitialized(true);
                 }
             } else {
@@ -228,6 +197,73 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
         initializeData();
     }, []);
 
+    // Función helper para buscar usuario en los datos locales
+    const findUserInData = (email: string | null, phoneNumber: string | null): LoggedInUser | null => {
+        // 🔍 DEBUG: Ver qué email/teléfono se está buscando
+        console.log('🔍 Buscando usuario:', { email, phoneNumber,
+            dataAvailable: {
+                collaborators: data.admins.length,
+                vendors: data.vendors.length,
+                drivers: data.drivers.length,
+                users: data.users.length
+            }
+        });
+
+        if (!email && !phoneNumber) return null;
+
+        let foundUser: LoggedInUser | null = null;
+
+        // ORDEN CORRECTO: Buscar PRIMERO en users (customers) - todos empiezan como clientes
+        // Buscar por EMAIL o TELÉFONO para vincular cuentas correctamente
+        if (email || phoneNumber) {
+            const customer = data.users.find(u =>
+                (email && u.email.toLowerCase() === email) ||
+                (phoneNumber && u.phone === phoneNumber)
+            );
+            if (customer) {
+                foundUser = { ...customer, role: 'customer' };
+            }
+        }
+
+        // Buscar en drivers (solo si ya es driver registrado)
+        if (!foundUser && (email || phoneNumber)) {
+            const driver = data.drivers.find(d =>
+                (email && d.email.toLowerCase() === email) ||
+                (phoneNumber && d.phone === phoneNumber)
+            );
+            if (driver) {
+                foundUser = { ...driver, role: 'driver' };
+            }
+        }
+
+        // Buscar en vendors (solo si ya es vendedor registrado)
+        if (!foundUser && (email || phoneNumber)) {
+            const vendor = data.vendors.find(v =>
+                (email && v.email.toLowerCase() === email) ||
+                (phoneNumber && v.phone === phoneNumber)
+            );
+            if (vendor) {
+                foundUser = { ...vendor, role: 'vendor' };
+            }
+        }
+
+        // Buscar en collaborators (admin) - última prioridad
+        if (!foundUser && (email || phoneNumber)) {
+            const admin = data.admins.find(c =>
+                (email && c.email.toLowerCase() === email) ||
+                (phoneNumber && c.phone === phoneNumber)
+            );
+            if (admin) {
+                foundUser = { ...admin, role: 'admin' };
+            }
+        }
+
+        // 🔍 DEBUG: Ver resultado de la búsqueda
+        console.log('🔍 Resultado búsqueda:', foundUser ? `✅ Encontrado: ${foundUser.role}` : '❌ NO encontrado');
+
+        return foundUser;
+    };
+
     // Sincronizar usuario autenticado de Firebase Auth con currentUser
     useEffect(() => {
         if (!useFirestore) return;
@@ -236,77 +272,64 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
         const unsubscribe = onAuthStateChanged(auth, (firebaseUser: FirebaseUser | null) => {
             if (firebaseUser) {
                 // Usuario autenticado en Firebase
-                console.log('🔐 Usuario autenticado detectado:', firebaseUser.email || firebaseUser.phoneNumber);
-
                 // Buscar usuario en la base de datos local por email O teléfono
                 const email = firebaseUser.email?.toLowerCase();
                 const phoneNumber = firebaseUser.phoneNumber;
 
-                let foundUser: LoggedInUser | null = null;
-
-                // ORDEN CORRECTO: Buscar PRIMERO en users (customers) - todos empiezan como clientes
-                // Buscar por EMAIL o TELÉFONO para vincular cuentas correctamente
-                if (email || phoneNumber) {
-                    const customer = data.users.find(u =>
-                        (email && u.email.toLowerCase() === email) ||
-                        (phoneNumber && u.phone === phoneNumber)
-                    );
-                    if (customer) {
-                        foundUser = { ...customer, role: 'customer' };
-                    }
-                }
-
-                // Buscar en drivers (solo si ya es driver registrado)
-                if (!foundUser && (email || phoneNumber)) {
-                    const driver = data.drivers.find(d =>
-                        (email && d.email.toLowerCase() === email) ||
-                        (phoneNumber && d.phone === phoneNumber)
-                    );
-                    if (driver) {
-                        foundUser = { ...driver, role: 'driver' };
-                    }
-                }
-
-                // Buscar en vendors (solo si ya es vendedor registrado)
-                if (!foundUser && (email || phoneNumber)) {
-                    const vendor = data.vendors.find(v =>
-                        (email && v.email.toLowerCase() === email) ||
-                        (phoneNumber && v.phone === phoneNumber)
-                    );
-                    if (vendor) {
-                        foundUser = { ...vendor, role: 'vendor' };
-                    }
-                }
-
-                // Buscar en collaborators (admin) - última prioridad
-                if (!foundUser && (email || phoneNumber)) {
-                    const admin = data.collaborators.find(c =>
-                        (email && c.email.toLowerCase() === email) ||
-                        (phoneNumber && c.phone === phoneNumber)
-                    );
-                    if (admin) {
-                        foundUser = { ...admin, role: 'admin' };
-                    }
-                }
+                const foundUser = findUserInData(email || null, phoneNumber);
 
                 // Si no se encuentra el usuario en ninguna tabla, dejarlo sin rol
                 // El flujo de login redirigirá a /select-role para que elija
                 if (!foundUser) {
                     // No establecer currentUser para que el login detecte que necesita seleccionar rol
+                    console.log('⚠️ Usuario autenticado en Firebase pero NO encontrado en Firestore:', email || phoneNumber);
                     setCurrentUser(null);
                     return; // Salir temprano
                 }
 
+                console.log('✅ Usuario encontrado en Firestore:', foundUser.role, email || phoneNumber);
                 setCurrentUser(foundUser);
             } else {
                 // Usuario no autenticado
-                console.log('🔓 Usuario no autenticado');
                 setCurrentUser(null);
             }
         });
 
         return () => unsubscribe();
-    }, [useFirestore, data.collaborators, data.vendors, data.drivers, data.users]);
+    }, [useFirestore, data.admins, data.vendors, data.drivers, data.users]);
+
+    // SOLUCIÓN CRÍTICA: Re-evaluar currentUser cuando los datos cambien
+    // Esto resuelve el problema de timing donde onAuthStateChanged dispara antes de que los datos se carguen
+    useEffect(() => {
+        if (!useFirestore) return;
+
+        const auth = getAuth();
+        const firebaseUser = auth.currentUser;
+
+        // 🔍 DEBUG: Ver estado del segundo useEffect
+        console.log('🔄 Segundo useEffect ejecutándose:', {
+            firebaseUser: firebaseUser?.email || firebaseUser?.phoneNumber || null,
+            currentUser: currentUser ? currentUser.role : null,
+            shouldReEvaluate: !!(firebaseUser && !currentUser)
+        });
+
+        // Si hay un usuario autenticado en Firebase pero currentUser no tiene role
+        if (firebaseUser && !currentUser) {
+            const email = firebaseUser.email?.toLowerCase();
+            const phoneNumber = firebaseUser.phoneNumber;
+
+            console.log('🔄 Re-evaluando usuario ahora con email:', email, 'phone:', phoneNumber);
+
+            const foundUser = findUserInData(email || null, phoneNumber);
+
+            if (foundUser) {
+                console.log('✅ Re-evaluando usuario después de cargar datos:', foundUser.role, email || phoneNumber);
+                setCurrentUser(foundUser);
+            } else {
+                console.log('❌ Re-evaluación: Usuario NO encontrado en datos');
+            }
+        }
+    }, [useFirestore, data.admins, data.vendors, data.drivers, data.users, currentUser]);
 
     // --- Auth Functions ---
     const login = (email: string): LoggedInUser | null => {
@@ -332,7 +355,7 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
             return user;
         }
 
-        const admin = data.collaborators.find(c => c.email.toLowerCase() === email.toLowerCase());
+        const admin = data.admins.find(c => c.email.toLowerCase() === email.toLowerCase());
         if (admin) {
             const user: LoggedInUser = { ...admin, role: 'admin' };
             setCurrentUser(user);
@@ -383,7 +406,7 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
         }
 
         // Buscar en admins
-        const admin = data.collaborators.find(c => c.email.toLowerCase() === lowerEmail);
+        const admin = data.admins.find(c => c.email.toLowerCase() === lowerEmail);
         if (admin) {
             roles.push({ role: 'admin', data: admin });
         }
@@ -421,11 +444,33 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
         } else {
             setAvailableRoles([]);
         }
-    }, [currentUser, data.users, data.vendors, data.drivers, data.collaborators]);
+    }, [currentUser, data.users, data.vendors, data.drivers, data.admins]);
+
+    // 🔥 SINCRONIZACIÓN AUTOMÁTICA CON FIREBASE (BACKUP)
+    // Las operaciones críticas (saveVendor, saveDriver, saveUser) guardan INMEDIATAMENTE
+    // Este auto-sync sirve como BACKUP para otros cambios menores
+    useEffect(() => {
+        // No sincronizar si no está inicializado o no usa Firestore
+        if (!isInitialized || !useFirestore) return;
+
+        // Debounce: esperar 30 segundos después del último cambio antes de guardar
+        // Aumentado de 2s a 30s porque ahora las operaciones críticas guardan inmediatamente
+        const timeoutId = setTimeout(async () => {
+            const { currentUser, ...dataWithoutUser } = data as any;
+            const result = await saveAppDataToFirestore(dataWithoutUser);
+
+            if (!result.success) {
+                console.error('❌ [AUTO-SYNC BACKUP] Error al sincronizar con Firebase:', result.error);
+            }
+        }, 30000); // Esperar 30 segundos de inactividad
+
+        return () => clearTimeout(timeoutId);
+    }, [data, isInitialized, useFirestore]);
 
     // --- Data Manipulation Functions ---
 
-    const saveOrder = (order: Order) => {
+    const saveOrder = async (order: Order) => {
+        // 1. Actualizar estado local primero
         setData(prevData => {
             const index = prevData.orders.findIndex(o => o.id === order.id);
             const newOrders = [...prevData.orders];
@@ -436,9 +481,34 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
             }
             return { ...prevData, orders: newOrders };
         });
+
+        // 2. Guardar INMEDIATAMENTE en Firebase
+        if (useFirestore) {
+            try {
+                const { saveAppDataToFirestore } = await import('@/lib/firestore-service');
+                const { currentUser, ...dataWithoutUser } = data as any;
+
+                // Actualizar la orden en el objeto de datos
+                const updatedData = { ...dataWithoutUser };
+                const orderIndex = updatedData.orders.findIndex((o: Order) => o.id === order.id);
+                if (orderIndex > -1) {
+                    updatedData.orders[orderIndex] = order;
+                } else {
+                    updatedData.orders.push(order);
+                }
+
+                const result = await saveAppDataToFirestore(updatedData);
+
+                if (!result.success) {
+                    console.error(`❌ Error al guardar orden ${order.id} en Firebase:`, result.error);
+                }
+            } catch (error) {
+                console.error(`❌ Error al guardar orden ${order.id} en Firebase:`, error);
+            }
+        }
     };
 
-    const addOrder = (newOrderData: Omit<Order, 'id' | 'date' | 'status' | 'verificationCode'>): Order => {
+    const addOrder = async (newOrderData: Omit<Order, 'id' | 'date' | 'status' | 'verificationCode'>): Promise<Order> => {
         const verificationCode = Math.floor(1000 + Math.random() * 9000).toString();
         const newOrder: Order = {
             ...newOrderData,
@@ -450,21 +520,69 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
          // Set payoutStatus for each item
         newOrder.items.forEach(item => item.payoutStatus = 'pending');
 
+        // 1. Actualizar estado local primero
         setData(prevData => ({
             ...prevData,
             orders: [newOrder, ...prevData.orders]
         }));
+
+        // 2. Guardar INMEDIATAMENTE en Firebase
+        if (useFirestore) {
+            try {
+                const { saveAppDataToFirestore } = await import('@/lib/firestore-service');
+                const { currentUser, ...dataWithoutUser } = data as any;
+
+                // Agregar la nueva orden al objeto de datos
+                const updatedData = {
+                    ...dataWithoutUser,
+                    orders: [newOrder, ...dataWithoutUser.orders]
+                };
+
+                const result = await saveAppDataToFirestore(updatedData);
+
+                if (!result.success) {
+                    console.error(`❌ Error al guardar orden ${newOrder.id} en Firebase:`, result.error);
+                }
+            } catch (error) {
+                console.error(`❌ Error al guardar orden ${newOrder.id} en Firebase:`, error);
+            }
+        }
+
         return newOrder;
     };
 
-    const deleteOrder = (orderId: string) => {
+    const deleteOrder = async (orderId: string) => {
+        // 1. Actualizar estado local primero
         setData(prevData => ({
             ...prevData,
             orders: prevData.orders.filter(o => o.id !== orderId)
         }));
+
+        // 2. Guardar INMEDIATAMENTE en Firebase
+        if (useFirestore) {
+            try {
+                const { saveAppDataToFirestore } = await import('@/lib/firestore-service');
+                const { currentUser, ...dataWithoutUser } = data as any;
+
+                // Eliminar la orden del objeto de datos
+                const updatedData = {
+                    ...dataWithoutUser,
+                    orders: dataWithoutUser.orders.filter((o: Order) => o.id !== orderId)
+                };
+
+                const result = await saveAppDataToFirestore(updatedData);
+
+                if (!result.success) {
+                    console.error(`❌ Error al eliminar orden ${orderId} de Firebase:`, result.error);
+                }
+            } catch (error) {
+                console.error(`❌ Error al eliminar orden ${orderId} de Firebase:`, error);
+            }
+        }
     };
 
-    const saveVendor = (vendor: Vendor) => {
+    const saveVendor = async (vendor: Vendor) => {
+        // 1. Actualizar estado local primero
         setData(prevData => {
             const newVendors = [...prevData.vendors];
             const index = newVendors.findIndex(v => v.id === vendor.id);
@@ -473,8 +591,44 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
             } else {
                 newVendors.push(vendor);
             }
-            return { ...prevData, vendors: newVendors };
+
+            // 🎯 AUTO-CREAR ROL DE CUSTOMER: Si el vendor no existe como usuario, crearlo automáticamente
+            const newUsers = [...prevData.users];
+            const userExists = newUsers.find(u => u.email.toLowerCase() === vendor.email.toLowerCase());
+
+            if (!userExists) {
+                const newCustomer: User = {
+                    id: vendor.id, // Usar mismo ID para vincular
+                    name: vendor.name,
+                    email: vendor.email,
+                    phone: vendor.phone,
+                    address: vendor.address || '',
+                    profileImageUrl: vendor.imageUrl || undefined,
+                };
+                newUsers.push(newCustomer);
+            }
+
+            return { ...prevData, vendors: newVendors, users: newUsers };
         });
+
+        // 2. 🔥 GUARDAR INMEDIATAMENTE A FIREBASE (no esperar el auto-sync)
+        if (useFirestore && isInitialized) {
+            // Obtener los datos actualizados
+            const updatedData = { ...data };
+            const vendorIndex = updatedData.vendors.findIndex(v => v.id === vendor.id);
+            if (vendorIndex > -1) {
+                updatedData.vendors[vendorIndex] = vendor;
+            } else {
+                updatedData.vendors.push(vendor);
+            }
+
+            const { currentUser, ...dataWithoutUser } = updatedData as any;
+            const result = await saveAppDataToFirestore(dataWithoutUser);
+
+            if (!result.success) {
+                console.error('❌ [SAVE VENDOR] Error al guardar vendor en Firebase:', result.error);
+            }
+        }
     };
 
     const deleteVendor = (vendorId: string) => {
@@ -523,43 +677,120 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
         setData(prevData => ({...prevData, deliveryZones: prevData.deliveryZones.filter(z => z.id !== zoneId)}));
     };
 
-    const saveDriver = (driver: DeliveryDriver) => {
+    const saveDriver = async (driver: DeliveryDriver) => {
+      // 1. Actualizar estado local primero
       setData(prevData => {
         const index = prevData.drivers.findIndex(d => d.id === driver.id);
         const newDrivers = [...prevData.drivers];
         if (index > -1) { newDrivers[index] = driver; } else { newDrivers.push(driver); }
-        return { ...prevData, drivers: newDrivers };
+
+        // 🎯 AUTO-CREAR ROL DE CUSTOMER: Si el driver no existe como usuario, crearlo automáticamente
+        const newUsers = [...prevData.users];
+        const userExists = newUsers.find(u => u.email.toLowerCase() === driver.email.toLowerCase());
+
+        if (!userExists) {
+          const newCustomer: User = {
+            id: driver.id, // Usar mismo ID para vincular
+            name: driver.name,
+            email: driver.email,
+            phone: driver.phone,
+            address: '', // Los drivers no tienen address en su registro
+            profileImageUrl: driver.profileImageUrl || undefined,
+          };
+          newUsers.push(newCustomer);
+        }
+
+        return { ...prevData, drivers: newDrivers, users: newUsers };
       });
+
+      // 2. 🔥 GUARDAR INMEDIATAMENTE A FIREBASE (no esperar el auto-sync)
+      if (useFirestore && isInitialized) {
+          // Obtener los datos actualizados
+          const updatedData = { ...data };
+          const driverIndex = updatedData.drivers.findIndex(d => d.id === driver.id);
+          if (driverIndex > -1) {
+              updatedData.drivers[driverIndex] = driver;
+          } else {
+              updatedData.drivers.push(driver);
+          }
+
+          const { currentUser, ...dataWithoutUser } = updatedData as any;
+          const result = await saveAppDataToFirestore(dataWithoutUser);
+
+          if (!result.success) {
+              console.error('❌ [SAVE DRIVER] Error al guardar driver en Firebase:', result.error);
+          }
+      }
     };
 
     const deleteDriver = (driverId: string) => {
         setData(prevData => ({...prevData, drivers: prevData.drivers.filter(d => d.id !== driverId)}));
     };
 
-    const saveUser = (user: User) => {
+    const saveUser = async (user: User) => {
+       // 1. Actualizar estado local primero
        setData(prevData => {
         const index = prevData.users.findIndex(u => u.id === user.id);
         const newUsers = [...prevData.users];
         if (index > -1) { newUsers[index] = user; } else { newUsers.push(user); }
         return { ...prevData, users: newUsers };
       });
+
+       // 2. 🔥 GUARDAR INMEDIATAMENTE A FIREBASE (no esperar el auto-sync)
+       if (useFirestore && isInitialized) {
+          // Obtener los datos actualizados
+          const updatedData = { ...data };
+          const userIndex = updatedData.users.findIndex(u => u.id === user.id);
+          if (userIndex > -1) {
+              updatedData.users[userIndex] = user;
+          } else {
+              updatedData.users.push(user);
+          }
+
+          const { currentUser, ...dataWithoutUser } = updatedData as any;
+          const result = await saveAppDataToFirestore(dataWithoutUser);
+
+          if (!result.success) {
+              console.error('❌ [SAVE USER] Error al guardar user en Firebase:', result.error);
+          }
+      }
     };
     
     const deleteUser = (userId: string) => {
         setData(prevData => ({ ...prevData, users: prevData.users.filter(u => u.id !== userId) }));
     };
     
-    const saveCollaborator = (collaborator: Collaborator) => {
+    const saveAdmin = async (admin: Admin) => {
+       // 1. Actualizar estado local primero
        setData(prevData => {
-        const index = prevData.collaborators.findIndex(c => c.id === collaborator.id);
-        const newCollaborators = [...prevData.collaborators];
-        if (index > -1) { newCollaborators[index] = collaborator; } else { newCollaborators.push(collaborator); }
-        return { ...prevData, collaborators: newCollaborators };
+        const index = prevData.admins.findIndex(c => c.id === admin.id);
+        const newAdmins = [...prevData.admins];
+        if (index > -1) { newAdmins[index] = admin; } else { newAdmins.push(admin); }
+        return { ...prevData, admins: newAdmins };
       });
+
+       // 2. 🔥 GUARDAR INMEDIATAMENTE A FIREBASE (no esperar el auto-sync)
+       if (useFirestore && isInitialized) {
+          // Obtener los datos actualizados
+          const updatedData = { ...data };
+          const adminIndex = updatedData.admins.findIndex(c => c.id === admin.id);
+          if (adminIndex > -1) {
+              updatedData.admins[adminIndex] = admin;
+          } else {
+              updatedData.admins.push(admin);
+          }
+
+          const { currentUser, ...dataWithoutUser } = updatedData as any;
+          const result = await saveAppDataToFirestore(dataWithoutUser);
+
+          if (!result.success) {
+              console.error('❌ [SAVE ADMIN] Error al guardar admin en Firebase:', result.error);
+          }
+      }
     };
     
-    const deleteCollaborator = (collaboratorId: string) => {
-        setData(prevData => ({ ...prevData, collaborators: prevData.collaborators.filter(c => c.id !== collaboratorId) }));
+    const deleteAdmin = (adminId: string) => {
+        setData(prevData => ({ ...prevData, admins: prevData.admins.filter(c => c.id !== adminId) }));
     };
 
     const saveSettings = (settings: AppSettings) => {
@@ -750,8 +981,8 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
         addCreditTransaction,
         addDebtTransaction,
         clearDriverDebt,
-        saveCollaborator,
-        deleteCollaborator,
+        saveAdmin,
+        deleteAdmin,
         markDriverPayoutAsPaid,
         addFavor,
         saveFavor,

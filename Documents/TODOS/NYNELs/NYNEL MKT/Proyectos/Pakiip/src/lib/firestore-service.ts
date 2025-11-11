@@ -16,7 +16,7 @@ const COLLECTIONS = {
   CATEGORIES: 'categories', // Colección para categorías
   CITIES: 'cities', // Colección para ciudades
   DELIVERY_ZONES: 'deliveryZones', // Colección para zonas de entrega
-  COLLABORATORS: 'collaborators', // Colección para colaboradores
+  ADMINS: 'admins', // Colección para administradores
   MESSAGES: 'messages', // Colección para mensajes
   FAVORS: 'favors', // Colección para favores
   PROMOTIONAL_BANNERS: 'promotionalBanners', // Colección para banners promocionales
@@ -419,8 +419,6 @@ async function saveArrayWithChunking(
     // Dividir en chunks
     const chunks = chunkArray(data);
 
-    console.log(`📦 [CHUNKING] ${collection}: dividiendo ${data.length} elementos en ${chunks.length} chunk(s)`);
-
     // Guardar metadata con número total de chunks
     const metaResult = await saveDocument(collection, 'meta', {
       totalChunks: chunks.length,
@@ -434,17 +432,13 @@ async function saveArrayWithChunking(
 
     // Guardar cada chunk
     const chunkResults = await Promise.all(
-      chunks.map((chunk, index) => {
-        const chunkData = JSON.stringify(chunk);
-        const chunkSizeKB = (chunkData.length / 1024).toFixed(2);
-        console.log(`  📄 Chunk ${index}: ${chunk.length} items, ${chunkSizeKB}KB`);
-
-        return saveDocument(collection, `chunk_${index}`, {
-          data: chunkData,
+      chunks.map((chunk, index) =>
+        saveDocument(collection, `chunk_${index}`, {
+          data: JSON.stringify(chunk),
           chunkIndex: index,
           itemCount: chunk.length
-        });
-      })
+        })
+      )
     );
 
     // Verificar si algún chunk falló
@@ -481,12 +475,10 @@ async function loadArrayFromChunks<T>(
     );
 
     if (!metaResult.success || !metaResult.data) {
-      console.log(`⚠️ [CHUNKING] ${collection}: no metadata encontrada, usando fallback`);
       return fallback;
     }
 
-    const { totalChunks, totalItems } = metaResult.data;
-    console.log(`📦 [CHUNKING] ${collection}: cargando ${totalChunks} chunk(s) con ${totalItems} items`);
+    const { totalChunks } = metaResult.data;
 
     // Cargar todos los chunks en paralelo
     const chunkPromises = Array.from({ length: totalChunks }, (_, index) =>
@@ -505,16 +497,12 @@ async function loadArrayFromChunks<T>(
         try {
           const chunkData = JSON.parse(result.data.data) as T[];
           reconstructedArray.push(...chunkData);
-          console.log(`  ✅ Chunk ${i}: ${chunkData.length} items cargados`);
         } catch (error) {
-          console.error(`Error al parsear chunk ${i}:`, error);
+          console.error(`Error al parsear chunk ${i} de ${collection}:`, error);
         }
-      } else {
-        console.warn(`⚠️ Chunk ${i} no encontrado o vacío`);
       }
+      // Chunk vacío es comportamiento normal, no mostrar warning
     }
-
-    console.log(`✅ [CHUNKING] ${collection}: ${reconstructedArray.length} items reconstruidos`);
     return reconstructedArray.length > 0 ? reconstructedArray : fallback;
   } catch (error) {
     console.error(`Error al cargar ${collection} desde chunks:`, error);
@@ -530,7 +518,7 @@ export async function saveAppDataToFirestore(data: Omit<AppData, 'currentUser'>)
   try {
     // Dividir datos en partes pequeñas para no exceder límite de 1MB
     // IMPORTANTE: Extraer TODAS las propiedades, dejando metadata vacío (solo para futuras propiedades pequeñas)
-    const { vendors, users, drivers, orders, categories, cities, deliveryZones, collaborators, messages, favors, appSettings, ...metadata } = data;
+    const { vendors, users, drivers, orders, categories, cities, deliveryZones, admins, messages, favors, appSettings, ...metadata } = data;
 
     // Extraer los arrays grandes de appSettings
     const { promotionalBanners, announcementBanners, paymentMethods, ...coreSettings } = appSettings;
@@ -593,7 +581,7 @@ export async function saveAppDataToFirestore(data: Omit<AppData, 'currentUser'>)
       saveArrayWithChunking(COLLECTIONS.CATEGORIES, categories),
       saveArrayWithChunking(COLLECTIONS.CITIES, cities),
       saveArrayWithChunking(COLLECTIONS.DELIVERY_ZONES, deliveryZones),
-      saveArrayWithChunking(COLLECTIONS.COLLABORATORS, collaborators),
+      saveArrayWithChunking(COLLECTIONS.ADMINS, admins),
       saveArrayWithChunking(COLLECTIONS.MESSAGES, messages),
       saveArrayWithChunking(COLLECTIONS.FAVORS, favors),
       // Guardar arrays de appSettings con imágenes ya optimizadas en Storage
@@ -658,7 +646,7 @@ export async function loadAppDataFromFirestore(
 
     // Cargar todas las colecciones usando CHUNKING en paralelo
     // VENDORS usa función especializada que reconstruye imágenes desde colección separada
-    const [vendors, users, drivers, orders, categories, cities, deliveryZones, collaborators,
+    const [vendors, users, drivers, orders, categories, cities, deliveryZones, admins,
            messages, favors, promotionalBanners, announcementBanners, bankAccounts, qrPayments] = await Promise.all([
       loadVendorsWithImages(defaultData.vendors), // ✅ Función especializada para vendors con imágenes
       loadArrayFromChunks(COLLECTIONS.USERS, defaultData.users),
@@ -667,7 +655,7 @@ export async function loadAppDataFromFirestore(
       loadArrayFromChunks(COLLECTIONS.CATEGORIES, defaultData.categories),
       loadArrayFromChunks(COLLECTIONS.CITIES, defaultData.cities),
       loadArrayFromChunks(COLLECTIONS.DELIVERY_ZONES, defaultData.deliveryZones),
-      loadArrayFromChunks(COLLECTIONS.COLLABORATORS, defaultData.collaborators),
+      loadArrayFromChunks(COLLECTIONS.ADMINS, defaultData.admins),
       loadArrayFromChunks(COLLECTIONS.MESSAGES, defaultData.messages),
       loadArrayFromChunks(COLLECTIONS.FAVORS, defaultData.favors),
       // Arrays de appSettings
@@ -702,7 +690,7 @@ export async function loadAppDataFromFirestore(
       categories,
       cities,
       deliveryZones,
-      collaborators,
+      admins,
       messages,
       favors
     };

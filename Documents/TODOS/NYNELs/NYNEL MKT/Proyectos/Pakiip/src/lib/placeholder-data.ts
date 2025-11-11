@@ -68,7 +68,7 @@ export type Vendor = {
   productCategories: VendorProductCategory[];
   isFeatured?: boolean;
   commissionRate: number;
-  status: 'active' | 'inactive' | 'pending' | 'rejected';
+  status: 'Activo' | 'Inactivo' | 'Pendiente' | 'Rechazado';
   additionalFee?: number; // Fee for packaging, etc.
 };
 
@@ -207,12 +207,12 @@ export type ShippingSettings = {
     feePerKm: number;
 }
 
-export type Collaborator = {
+export type Admin = {
     id: string;
     name: string;
     email: string;
-    role: string;
-    permissions: string[]; // e.g., ['manage_orders', 'view_reports']
+    phone: string;
+    permissions: string[]; // e.g., ['manage_orders', 'view_reports', 'manage_settings']
 };
 
 export type PromotionalBanner = {
@@ -281,6 +281,7 @@ export type Order = {
     id: string;
     date: string;
     customerName: string;
+    customerPhone: string; // Teléfono del cliente para contacto
     customerAddress: string;
     customerCoordinates: Coordinate;
     status: 'Procesando' | 'Listo para Recoger' | 'Esperando Aceptación' | 'Enviado' | 'Entregado' | 'Cancelado';
@@ -322,7 +323,7 @@ export type AppData = {
   favors: Favor[];
   cities: City[];
   deliveryZones: DeliveryZone[];
-  collaborators: Collaborator[];
+  admins: Admin[];
   currentUser?: any; // Intentionally left flexible for runtime session management
 };
 
@@ -343,10 +344,10 @@ export const initialData: AppData = {
   ],
   categories: [],
   vendors: [
-    { id: '1', name: 'Farmacia Universal', email: 'vendor@mercadolisto.com', phone: '987654321', dni: '20556677881', bankAccount: { bankName: 'BCP', accountNumber: '123-456-789', accountHolder: 'Farmacia Universal SAC' }, paymentMethod: 'bank', description: 'La mejor pizza italiana de la ciudad.', category: 'Farmacia', imageUrl: 'https://placehold.co/400x300/4CAF50/FFFFFF?text=FU', bannerUrl: '/placeholder-images/pharmacy_banner_1.png', address: 'Av. Larco 743, Miraflores', location: 'Lima', coordinates: { lat: -12.1214, lng: -77.0282 }, status: 'active',
+    { id: '1', name: 'Farmacia Universal', email: 'vendor@mercadolisto.com', phone: '987654321', dni: '20556677881', bankAccount: { bankName: 'BCP', accountNumber: '123-456-789', accountHolder: 'Farmacia Universal SAC' }, paymentMethod: 'bank', description: 'La mejor pizza italiana de la ciudad.', category: 'Farmacia', imageUrl: 'https://placehold.co/400x300/4CAF50/FFFFFF?text=FU', bannerUrl: '/placeholder-images/pharmacy_banner_1.png', address: 'Av. Larco 743, Miraflores', location: 'Lima', coordinates: { lat: -12.1214, lng: -77.0282 }, status: 'Activo',
       productCategories: [],
       products: [], isFeatured: false, commissionRate: 15 },
-    { id: '2', name: 'Plaza Vea', email: 'contact@burgerpalace.com', phone: '912345678', dni: '20556677992', bankAccount: { bankName: 'Interbank', accountNumber: '987-654-321', accountHolder: 'Supermercados Peruanos S.A.' }, paymentMethod: 'bank', description: 'Hamburguesas jugosas y batidos cremosos.', category: 'Supermercado', imageUrl: 'https://placehold.co/400x300/F44336/FFFFFF?text=PV', bannerUrl: '/placeholder-images/supermarket_banner_1.png', address: 'Calle Las Begonias 450, San Isidro', location: 'Lima', coordinates: { lat: -12.0889, lng: -77.0431 }, status: 'active',
+    { id: '2', name: 'Plaza Vea', email: 'contact@burgerpalace.com', phone: '912345678', dni: '20556677992', bankAccount: { bankName: 'Interbank', accountNumber: '987-654-321', accountHolder: 'Supermercados Peruanos S.A.' }, paymentMethod: 'bank', description: 'Hamburguesas jugosas y batidos cremosos.', category: 'Supermercado', imageUrl: 'https://placehold.co/400x300/F44336/FFFFFF?text=PV', bannerUrl: '/placeholder-images/supermarket_banner_1.png', address: 'Calle Las Begonias 450, San Isidro', location: 'Lima', coordinates: { lat: -12.0889, lng: -77.0431 }, status: 'Activo',
       productCategories: [],
       products: [], isFeatured: false, commissionRate: 12.5 },
   ],
@@ -389,7 +390,8 @@ export const initialData: AppData = {
         { id: 'bcp1', bankName: 'BCP', accountHolder: 'MercadoListo SAC', accountNumber: '123-4567890-1-23', country: 'Perú' }
       ],
       qrPayments: [
-        { id: 'qrYape1', name: 'Yape', qrImageUrl: 'https://placehold.co/200x200.png', instructions: 'Escanea para pagar con Yape' }
+        // Los administradores deben agregar métodos de pago QR (Yape, Plin, etc.) desde Admin > Configuración
+        // El sistema permite subir imágenes QR reales, no usar placeholders
       ],
       gateway: {
         provider: 'none',
@@ -454,9 +456,7 @@ export const initialData: AppData = {
   },
   orders: [],
   favors: [],
-  collaborators: [
-      { id: 'collab1', name: 'Admin Principal', email: 'admin@mercadolisto.com', role: 'Administrador', permissions: ['manage_orders', 'manage_stores', 'manage_drivers', 'manage_users', 'view_reports', 'manage_settings'] }
-  ],
+  admins: [],
 };
 
     

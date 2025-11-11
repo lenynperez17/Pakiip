@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import type { AppSettings, BankAccount, QRPayment, PaymentGatewaySettings, VerificationMethods, Collaborator, PromotionalBanner, City } from "@/lib/placeholder-data";
+import type { AppSettings, BankAccount, QRPayment, PaymentGatewaySettings, VerificationMethods, Admin, PromotionalBanner, City } from "@/lib/placeholder-data";
 import { DollarSign, Percent, Save, Star, Globe, Image as ImageIcon, Truck, PlusCircle, Trash, MoreHorizontal, CreditCard, ShieldCheck, FileText, Wallet, Users, PartyPopper, Megaphone, Link as LinkIcon, Loader2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
@@ -52,7 +52,7 @@ const availablePermissions = [
 
 
 function AdminSettingsPageContent() {
-  const { appSettings, saveSettings, collaborators, saveCollaborator, deleteCollaborator, cities } = useAppData();
+  const { appSettings, saveSettings, admins, saveAdmin, deleteAdmin, cities } = useAppData();
   const [settings, setSettings] = useState<AppSettings>(appSettings);
   const { toast } = useToast();
   const [verificationInstructions, setVerificationInstructions] = useState<VerificationInstructions | null>(null);
@@ -79,8 +79,8 @@ function AdminSettingsPageContent() {
   const [qrImageFile, setQrImageFile] = useState<File | null>(null);
 
   const [isTeamDialogOpen, setTeamDialogOpen] = useState(false);
-  const [editingCollaborator, setEditingCollaborator] = useState<Collaborator | null>(null);
-  const [collaboratorPermissions, setCollaboratorPermissions] = useState<string[]>([]);
+  const [editingAdmin, setEditingAdmin] = useState<Admin | null>(null);
+  const [adminPermissions, setAdminPermissions] = useState<string[]>([]);
 
   const [bannerPreviews, setBannerPreviews] = useState<Record<string, string>>({});
 
@@ -163,39 +163,39 @@ function AdminSettingsPageContent() {
     };
 
 
-  const handleEditCollaboratorClick = (collaborator: Collaborator) => {
-    setEditingCollaborator(collaborator);
-    setCollaboratorPermissions(collaborator.permissions);
+  const handleEditAdminClick = (admin: Admin) => {
+    setEditingAdmin(admin);
+    setAdminPermissions(admin.permissions);
     setTeamDialogOpen(true);
   };
   
   const handlePermissionChange = (permissionId: string, checked: boolean) => {
-    setCollaboratorPermissions(prev =>
+    setAdminPermissions(prev =>
       checked ? [...prev, permissionId] : prev.filter(p => p !== permissionId)
     );
   };
   
-  const handleSaveCollaborator = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSaveAdmin = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
-    const collaboratorData: Collaborator = {
-        id: editingCollaborator?.id || `collab${Date.now()}`,
+    const adminData: Admin = {
+        id: editingAdmin?.id || `ADMIN-${Date.now()}`,
         name: formData.get('name') as string,
         email: formData.get('email') as string,
-        role: formData.get('role') as string,
-        permissions: collaboratorPermissions
+        phone: formData.get('phone') as string,
+        permissions: adminPermissions
     };
 
-    saveCollaborator(collaboratorData);
+    saveAdmin(adminData);
     setTeamDialogOpen(false);
-    setEditingCollaborator(null);
-    setCollaboratorPermissions([]);
-    toast({ title: "Colaborador Guardado", description: `Se han guardado los datos de ${collaboratorData.name}.` });
+    setEditingAdmin(null);
+    setAdminPermissions([]);
+    toast({ title: "Administrador Guardado", description: `Se han guardado los datos de ${adminData.name}.` });
   };
   
-  const handleDeleteCollaborator = (collaboratorId: string) => {
-      deleteCollaborator(collaboratorId);
-      toast({ title: "Colaborador Eliminado", variant: "destructive" });
+  const handleDeleteAdmin = (adminId: string) => {
+      deleteAdmin(adminId);
+      toast({ title: "Administrador Eliminado", variant: "destructive" });
   };
 
 
@@ -1214,33 +1214,33 @@ function AdminSettingsPageContent() {
                             </div>
                             <Dialog open={isTeamDialogOpen} onOpenChange={setTeamDialogOpen}>
                                 <DialogTrigger asChild>
-                                    <Button size="sm" onClick={() => handleEditCollaboratorClick({ id: '', name: '', email: '', role: 'Colaborador', permissions: [] })}>
+                                    <Button size="sm" onClick={() => handleEditAdminClick({ id: '', name: '', email: '', phone: '', permissions: [] })}>
                                         <Users className="mr-2 h-4 w-4" /> Añadir Miembro
                                     </Button>
                                 </DialogTrigger>
                                 <DialogContent className="sm:max-w-2xl">
                                     <DialogHeader>
-                                        <DialogTitle>{editingCollaborator?.id ? 'Editar' : 'Añadir'} Colaborador</DialogTitle>
+                                        <DialogTitle>{editingAdmin?.id ? 'Editar' : 'Añadir'} Administrador</DialogTitle>
                                         <DialogDescription>
-                                            Configura los detalles y permisos del miembro del equipo.
+                                            Configura los detalles y permisos del administrador.
                                         </DialogDescription>
                                     </DialogHeader>
-                                    <form onSubmit={handleSaveCollaborator}>
+                                    <form onSubmit={handleSaveAdmin}>
                                         <div className="grid gap-6 py-4 max-h-[70vh] overflow-y-auto pr-4">
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                 <div className="space-y-1">
                                                     <Label htmlFor="name">Nombre</Label>
-                                                    <Input id="name" name="name" defaultValue={editingCollaborator?.name} required />
+                                                    <Input id="name" name="name" defaultValue={editingAdmin?.name} required />
                                                 </div>
                                                 <div className="space-y-1">
                                                     <Label htmlFor="email">Correo Electrónico</Label>
-                                                    <Input id="email" name="email" type="email" defaultValue={editingCollaborator?.email} required />
+                                                    <Input id="email" name="email" type="email" defaultValue={editingAdmin?.email} required />
                                                 </div>
                                             </div>
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                 <div className="space-y-1">
-                                                    <Label htmlFor="role">Rol</Label>
-                                                    <Input id="role" name="role" defaultValue={editingCollaborator?.role} placeholder="Ej: Gestor de Tiendas" required />
+                                                    <Label htmlFor="phone">Teléfono</Label>
+                                                    <Input id="phone" name="phone" type="tel" defaultValue={editingAdmin?.phone} placeholder="+51 999 999 999" required />
                                                 </div>
                                                 <div className="space-y-1">
                                                     <Label htmlFor="password">Contraseña (dejar en blanco para no cambiar)</Label>
@@ -1254,7 +1254,7 @@ function AdminSettingsPageContent() {
                                                         <div key={permission.id} className="flex items-center space-x-2">
                                                             <Checkbox
                                                                 id={permission.id}
-                                                                checked={collaboratorPermissions.includes(permission.id)}
+                                                                checked={adminPermissions.includes(permission.id)}
                                                                 onCheckedChange={(checked) => handlePermissionChange(permission.id, !!checked)}
                                                             />
                                                             <Label htmlFor={permission.id} className="font-normal">{permission.label}</Label>
@@ -1265,7 +1265,7 @@ function AdminSettingsPageContent() {
                                         </div>
                                         <DialogFooter>
                                             <Button type="button" variant="ghost" onClick={() => setTeamDialogOpen(false)}>Cancelar</Button>
-                                            <Button type="submit">Guardar Colaborador</Button>
+                                            <Button type="submit">Guardar Administrador</Button>
                                         </DialogFooter>
                                     </form>
                                 </DialogContent>
@@ -1279,22 +1279,22 @@ function AdminSettingsPageContent() {
                                     <TableRow>
                                         <TableHead>Nombre</TableHead>
                                         <TableHead>Email</TableHead>
-                                        <TableHead>Rol</TableHead>
+                                        <TableHead>Teléfono</TableHead>
                                         <TableHead>Acciones</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {collaborators.map(collaborator => (
-                                        <TableRow key={collaborator.id}>
-                                            <TableCell className="font-medium">{collaborator.name}</TableCell>
-                                            <TableCell>{collaborator.email}</TableCell>
-                                            <TableCell><Badge variant="secondary">{collaborator.role}</Badge></TableCell>
+                                    {admins.map(admin => (
+                                        <TableRow key={admin.id}>
+                                            <TableCell className="font-medium">{admin.name}</TableCell>
+                                            <TableCell>{admin.email}</TableCell>
+                                            <TableCell><Badge variant="secondary">{admin.phone}</Badge></TableCell>
                                             <TableCell>
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild><Button size="icon" variant="ghost"><MoreHorizontal /></Button></DropdownMenuTrigger>
                                                     <DropdownMenuContent>
-                                                        <DropdownMenuItem onClick={() => handleEditCollaboratorClick(collaborator)}>Editar</DropdownMenuItem>
-                                                        <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10" onClick={() => handleDeleteCollaborator(collaborator.id)}>Eliminar</DropdownMenuItem>
+                                                        <DropdownMenuItem onClick={() => handleEditAdminClick(admin)}>Editar</DropdownMenuItem>
+                                                        <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10" onClick={() => handleDeleteAdmin(admin.id)}>Eliminar</DropdownMenuItem>
                                                     </DropdownMenuContent>
                                                 </DropdownMenu>
                                             </TableCell>
