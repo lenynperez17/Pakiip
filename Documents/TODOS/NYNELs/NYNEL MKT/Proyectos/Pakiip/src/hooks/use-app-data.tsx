@@ -202,7 +202,7 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
         // 🔍 DEBUG: Ver qué email/teléfono se está buscando
         console.log('🔍 Buscando usuario:', { email, phoneNumber,
             dataAvailable: {
-                collaborators: data.admins.length,
+                admins: data.admins.length,
                 vendors: data.vendors.length,
                 drivers: data.drivers.length,
                 users: data.users.length
@@ -247,7 +247,7 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
             }
         }
 
-        // Buscar en collaborators (admin) - última prioridad
+        // Buscar en admins - última prioridad
         if (!foundUser && (email || phoneNumber)) {
             const admin = data.admins.find(c =>
                 (email && c.email.toLowerCase() === email) ||
@@ -384,7 +384,7 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
 
     // Función para obtener todos los roles de un email
     const getUserRoles = (email: string) => {
-        const roles: Array<{role: 'customer' | 'vendor' | 'driver' | 'admin', data: User | Vendor | DeliveryDriver | Collaborator}> = [];
+        const roles: Array<{role: 'customer' | 'vendor' | 'driver' | 'admin', data: User | Vendor | DeliveryDriver | Admin}> = [];
         const lowerEmail = email.toLowerCase();
 
         // Buscar en customers

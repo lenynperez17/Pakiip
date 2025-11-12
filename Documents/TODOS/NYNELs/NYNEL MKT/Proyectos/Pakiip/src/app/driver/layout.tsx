@@ -8,9 +8,10 @@ import { useAppData } from '@/hooks/use-app-data';
 import { Button } from '@/components/ui/button';
 import { LogOut, Home, User } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Logo } from '@/components/icons/Logo';
+import { AuthGuard } from "@/components/AuthGuard";
 
 function DriverLogo() {
   const { appSettings: settings } = useAppData();
@@ -27,6 +28,7 @@ export default function DriverLayout({
 }) {
   const { currentUser, logout } = useAppData();
   const router = useRouter();
+  const pathname = usePathname();
 
   const handleLogout = async () => {
     await logout();
@@ -37,8 +39,24 @@ export default function DriverLayout({
     return name.split(' ').map(n => n[0]).join('').toUpperCase();
   }
 
+  // No aplicar AuthGuard en páginas públicas (login y registro)
+  const isPublicPage = pathname === '/driver/login' || pathname === '/driver/register';
+
+  // Si es página pública, renderizar directamente sin AuthGuard
+  if (isPublicPage) {
+    return (
+      <div className="driver-layout flex min-h-screen w-full flex-col bg-muted/40">
+        <main className="driver-main flex flex-1 flex-col gap-4 px-4 sm:px-6 py-4 md:gap-8 md:py-6 lg:px-8 w-full max-w-7xl mx-auto">
+          {children}
+        </main>
+      </div>
+    );
+  }
+
+  // Para el resto de rutas de driver, aplicar AuthGuard
   return (
-    <div className="driver-layout flex min-h-screen w-full flex-col bg-muted/40">
+    <AuthGuard requireAuth={true} requireRole="driver" redirectTo="/driver/login">
+      <div className="driver-layout flex min-h-screen w-full flex-col bg-muted/40">
        <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
         <div className="flex w-full items-center justify-between">
             <div className="flex items-center gap-2 font-semibold">
@@ -82,5 +100,6 @@ export default function DriverLayout({
         {children}
       </main>
     </div>
+    </AuthGuard>
   );
 }
