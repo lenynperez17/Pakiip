@@ -42,6 +42,15 @@ function AdminStoresPageContent() {
   const [editLogoPreview, setEditLogoPreview] = useState<string | null>(null);
   const [editBannerPreview, setEditBannerPreview] = useState<string | null>(null);
 
+  // Diagnóstico: verificar vendors con IDs inválidos
+  React.useEffect(() => {
+    const invalidVendors = vendors.filter(v => !v.id);
+    if (invalidVendors.length > 0) {
+      console.error('⚠️ VENDORS CON ID INVÁLIDO:', invalidVendors);
+      console.error('⚠️ Cantidad:', invalidVendors.length);
+    }
+  }, [vendors]);
+
   // Estados para dirección y coordenadas
   const [addAddress, setAddAddress] = useState<string>("");
   const [addCoordinates, setAddCoordinates] = useState<{ lat: number; lng: number } | null>(null);
@@ -76,7 +85,7 @@ function AdminStoresPageContent() {
         products: [],
         productCategories: [],
         isFeatured: formData.get('isFeatured') === 'on',
-        status: 'active',
+        status: 'Activo',
         address: addAddress,
         dni: '',
         coordinates: addCoordinates || { lat: 0, lng: 0 } // Usa coordenadas reales de Google Maps
@@ -126,7 +135,7 @@ function AdminStoresPageContent() {
   const handleStatusToggle = (vendorId: string, status: Vendor['status']) => {
     const vendor = vendors.find(v => v.id === vendorId);
     if (vendor) {
-        saveVendor({ ...vendor, status: status === 'active' ? 'inactive' : 'active' });
+        saveVendor({ ...vendor, status: status === 'Activo' ? 'Inactivo' : 'Activo' });
     }
   };
 
@@ -140,7 +149,7 @@ function AdminStoresPageContent() {
   const handleApprove = (vendorId: string) => {
     const vendor = vendors.find(v => v.id === vendorId);
     if (vendor) {
-        saveVendor({ ...vendor, status: 'active' });
+        saveVendor({ ...vendor, status: 'Activo' });
         toast({ title: "Tienda Aprobada", description: `${vendor.name} ha sido activada.` });
     }
   };
@@ -148,7 +157,7 @@ function AdminStoresPageContent() {
   const handleReject = (vendorId: string) => {
       const vendor = vendors.find(v => v.id === vendorId);
       if (vendor) {
-          saveVendor({ ...vendor, status: 'rejected' });
+          saveVendor({ ...vendor, status: 'Rechazado' });
           toast({ title: "Tienda Rechazada", description: `${vendor.name} ha sido marcada como rechazada.`, variant: "destructive" });
       }
   };
@@ -163,15 +172,28 @@ function AdminStoresPageContent() {
                     <Package className="mr-2 h-4 w-4" /> Gestionar Productos
                 </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem className="text-destructive" onClick={() => setVendorToDelete(vendor)}>
+            <DropdownMenuItem
+              className="text-destructive"
+              onClick={() => {
+                if (!vendor.id) {
+                  toast({
+                    title: "Error",
+                    description: "Esta tienda no tiene un ID válido y no puede ser eliminada. Contacte al soporte técnico.",
+                    variant: "destructive"
+                  });
+                  return;
+                }
+                setVendorToDelete(vendor);
+              }}
+            >
                 <Trash className="mr-2 h-4 w-4" /> Eliminar
             </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
   );
-  
-  const activeVendors = vendors.filter(v => v.status === 'active' || v.status === 'inactive');
-  const pendingVendors = vendors.filter(v => v.status === 'pending');
+
+  const activeVendors = vendors.filter(v => v.status === 'Activo' || v.status === 'Inactivo');
+  const pendingVendors = vendors.filter(v => v.status === 'Pendiente');
 
   return (
     <>
@@ -224,7 +246,6 @@ function AdminStoresPageContent() {
                                     onChange={setAddAddress}
                                     onSelectAddress={(result: GeocodeResult) => {
                                         setAddCoordinates(result.coordinates);
-                                        console.log('📍 Admin - Coordenadas guardadas:', result.coordinates);
                                     }}
                                     required
                                     id="address"
@@ -330,13 +351,13 @@ function AdminStoresPageContent() {
                                     <div className="flex justify-between items-center text-sm border-t pt-3 mt-3">
                                         <div className="flex items-center gap-2">
                                             <Switch
-                                                checked={vendor.status === 'active'}
+                                                checked={vendor.status === 'Activo'}
                                                 onCheckedChange={() => handleStatusToggle(vendor.id, vendor.status)}
                                                 aria-label="Activar/Desactivar tienda"
                                                 id={`status-switch-${vendor.id}`}
                                             />
-                                            <Label htmlFor={`status-switch-${vendor.id}`} className={cn("text-xs", vendor.status === 'active' ? "text-primary" : "text-muted-foreground")}>
-                                                {vendor.status === 'active' ? 'Activa' : 'Inactiva'}
+                                            <Label htmlFor={`status-switch-${vendor.id}`} className={cn("text-xs", vendor.status === 'Activo' ? "text-primary" : "text-muted-foreground")}>
+                                                {vendor.status === 'Activo' ? 'Activa' : 'Inactiva'}
                                             </Label>
                                         </div>
                                         <div className="flex items-center gap-2">
@@ -419,8 +440,10 @@ function AdminStoresPageContent() {
                                 <SelectValue placeholder="Selecciona un estado" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="active">Activa</SelectItem>
-                                <SelectItem value="inactive">Inactiva</SelectItem>
+                                <SelectItem value="Activo">Activo</SelectItem>
+                                <SelectItem value="Inactivo">Inactivo</SelectItem>
+                                <SelectItem value="Pendiente">Pendiente</SelectItem>
+                                <SelectItem value="Rechazado">Rechazado</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
