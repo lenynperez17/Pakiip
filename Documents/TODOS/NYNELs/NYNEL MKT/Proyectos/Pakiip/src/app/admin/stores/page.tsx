@@ -46,10 +46,17 @@ function AdminStoresPageContent() {
   React.useEffect(() => {
     const invalidVendors = vendors.filter(v => !v.id);
     if (invalidVendors.length > 0) {
-      console.error('⚠️ VENDORS CON ID INVÁLIDO:', invalidVendors);
+      console.error('⚠️ VENDORS CON ID INVÁLIDO (OCULTOS):', invalidVendors);
       console.error('⚠️ Cantidad:', invalidVendors.length);
+      console.error('⚠️ Estos vendors están OCULTOS de la lista porque no tienen ID válido');
+
+      toast({
+        title: "⚠️ Datos Corruptos Detectados",
+        description: `${invalidVendors.length} tienda(s) con datos inválidos fueron ocultadas. Revisa la consola para más detalles.`,
+        variant: "destructive"
+      });
     }
-  }, [vendors]);
+  }, [vendors, toast]);
 
   // Estados para dirección y coordenadas
   const [addAddress, setAddAddress] = useState<string>("");
@@ -192,8 +199,10 @@ function AdminStoresPageContent() {
       </DropdownMenu>
   );
 
-  const activeVendors = vendors.filter(v => v.status === 'Activo' || v.status === 'Inactivo');
-  const pendingVendors = vendors.filter(v => v.status === 'Pendiente');
+  // Filtrar vendors válidos (con ID) y separar por estado
+  const validVendors = vendors.filter(v => v.id); // Solo vendors con ID válido
+  const activeVendors = validVendors.filter(v => v.status === 'Activo' || v.status === 'Inactivo');
+  const pendingVendors = validVendors.filter(v => v.status === 'Pendiente');
 
   return (
     <>
