@@ -1,0 +1,232 @@
+rules_version = '2';
+
+// ========================================
+// REGLAS DE SEGURIDAD DE FIRESTORE - PRODUCCIÓN
+// Actualizadas: 2025-01-13
+// PERMISOS PÚBLICOS PARA HOME PAGE
+// ========================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ============================================
+    // FUNCIONES AUXILIARES
+    // ============================================
+
+    // Verificar si el usuario está autenticado
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Verificar si el usuario es administrador
+    // NOTA: Los admins están en chunks, no como documentos individuales
+    // Por eso verificamos por email en lugar de UID
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'admin@pakiip.com'
+      );
+    }
+
+    // Verificar si el usuario es el propietario del documento
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // ============================================
+    // REGLAS POR COLECCIÓN - LECTURA PÚBLICA PARA HOME
+    // ============================================
+
+    // Configuración de la aplicación - LECTURA PÚBLICA
+    match /appData/{document} {
+      allow read: if true; // Público para cargar datos iniciales
+      allow write: if isAdmin();
+    }
+
+    match /appSettings/{document} {
+      allow read: if true; // Público para configuración general
+      allow write: if isAdmin();
+    }
+
+    // Configuración de usuario (rol activo, preferencias)
+    match /userSettings/{email} {
+      allow read: if isSignedIn() && request.auth.token.email == email;
+      allow write: if isSignedIn() && request.auth.token.email == email;
+    }
+
+    // Ciudades - LECTURA PÚBLICA
+    match /cities/{cityId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Zonas de entrega - LECTURA PÚBLICA
+    match /deliveryZones/{zoneId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Categorías - LECTURA PÚBLICA
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Vendedores/Tiendas - LECTURA PÚBLICA
+    match /vendors/{vendorId} {
+      allow read: if true; // Público para catálogo
+      allow create: if isSignedIn();
+      allow update: if isOwner(resource.data.ownerId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Imágenes de vendedores - LECTURA PÚBLICA
+    match /vendorImages/{vendorId} {
+      allow read: if true;
+      allow write: if isAdmin() || isSignedIn();
+    }
+
+    // Usuarios - LECTURA PÚBLICA DE CHUNKS/META
+    match /users/{document} {
+      allow read: if true; // Público para cargar lista de usuarios
+      allow write: if isAdmin();
+    }
+
+    // Documentos de usuarios individuales (por UID)
+    match /users/{userId} {
+      allow read: if !(userId == 'meta' || userId.matches('chunk_.*')) && (isOwner(userId) || isAdmin());
+      allow create: if isSignedIn() && isOwner(userId);
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Conductores - LECTURA PÚBLICA DE CHUNKS/META
+    match /drivers/{document} {
+      allow read: if true; // Público para cargar lista de drivers
+      allow write: if isAdmin();
+    }
+
+    // Documentos de conductores individuales
+    match /drivers/{driverId} {
+      allow read: if !(driverId == 'meta' || driverId.matches('chunk_.*')) && (isOwner(driverId) || isAdmin());
+      allow create: if isSignedIn() && isOwner(driverId);
+      allow update: if isOwner(driverId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Órdenes - LECTURA PÚBLICA DE CHUNKS/META
+    match /orders/{document} {
+      allow read: if true; // Público para cargar lista de órdenes
+      allow write: if isAdmin();
+    }
+
+    // Documentos de órdenes individuales
+    match /orders/{orderId} {
+      allow read: if !(orderId == 'meta' || orderId.matches('chunk_.*')) && isSignedIn() && (
+        isOwner(resource.data.userId) ||
+        isOwner(resource.data.vendorId) ||
+        isOwner(resource.data.driverId) ||
+        isAdmin()
+      );
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (
+        isOwner(resource.data.userId) ||
+        isOwner(resource.data.vendorId) ||
+        isOwner(resource.data.driverId) ||
+        isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+
+    // Favores - LECTURA PÚBLICA DE CHUNKS/META
+    match /favors/{document} {
+      allow read: if true; // Público para cargar lista de favores
+      allow write: if isAdmin();
+    }
+
+    // Documentos de favores individuales
+    match /favors/{favorId} {
+      allow read: if !(favorId == 'meta' || favorId.matches('chunk_.*')) && isSignedIn() && (
+        isOwner(resource.data.userId) ||
+        isOwner(resource.data.driverId) ||
+        isAdmin()
+      );
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (
+        isOwner(resource.data.userId) ||
+        isOwner(resource.data.driverId) ||
+        isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+
+    // Mensajes - LECTURA PÚBLICA DE CHUNKS/META
+    match /messages/{document} {
+      allow read: if true; // Público para cargar lista de mensajes
+      allow write: if isAdmin();
+    }
+
+    // Documentos de mensajes individuales
+    match /messages/{messageId} {
+      allow read: if !(messageId == 'meta' || messageId.matches('chunk_.*')) && isSignedIn() && (
+        isOwner(resource.data.senderId) ||
+        isOwner(resource.data.recipientId) ||
+        isAdmin()
+      );
+      allow create: if isSignedIn();
+      allow update: if isOwner(resource.data.senderId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Administradores - LECTURA PÚBLICA DE CHUNKS/META
+    match /admins/{document} {
+      allow read: if true; // Público para verificar admins
+      allow write: if isAdmin();
+    }
+
+    // Documentos de admin individuales
+    match /admins/{adminId} {
+      allow read: if !(adminId == 'meta' || adminId.matches('chunk_.*')) && isAdmin();
+      allow create: if isSignedIn();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Banners promocionales - LECTURA PÚBLICA
+    match /promotionalBanners/{bannerId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Banners de anuncios - LECTURA PÚBLICA
+    match /announcementBanners/{bannerId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Cuentas bancarias - LECTURA PÚBLICA
+    match /bankAccounts/{accountId} {
+      allow read: if true; // Público para mostrar métodos de pago
+      allow write: if isAdmin();
+    }
+
+    // Pagos QR - LECTURA PÚBLICA
+    match /qrPayments/{paymentId} {
+      allow read: if true; // Público para mostrar opciones de pago
+      allow write: if isAdmin();
+    }
+
+    // Carritos de compra
+    match /carts/{userId} {
+      allow read: if isSignedIn() && (isOwner(userId) || isAdmin());
+      allow write: if isSignedIn() && (isOwner(userId) || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // ============================================
+    // BLOQUEAR TODO LO DEMÁS
+    // ============================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
