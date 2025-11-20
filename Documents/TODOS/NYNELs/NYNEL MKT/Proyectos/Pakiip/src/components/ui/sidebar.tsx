@@ -7,6 +7,7 @@ import { VariantProps, cva } from "class-variance-authority"
 import { Menu } from "lucide-react"
 
 import { useIsMobile } from "@/hooks/use-mobile"
+import { useAppData } from "@/hooks/use-app-data"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -68,10 +69,41 @@ const SidebarProvider = React.forwardRef<
     ref
   ) => {
     const isMobile = useIsMobile()
+    const { currentUser } = useAppData()
     const [openMobile, setOpenMobile] = React.useState(false)
 
     const [_open, _setOpen] = React.useState(defaultOpen)
     const open = openProp ?? _open
+
+    // 🔥 CARGAR estado del sidebar de Firebase al montar/cambiar usuario
+    React.useEffect(() => {
+      async function loadSidebarState() {
+        if (!currentUser) {
+          // Sin usuario, cargar de cookies
+          const cookieValue = document.cookie
+            .split('; ')
+            .find(row => row.startsWith(SIDEBAR_COOKIE_NAME + '='))
+            ?.split('=')[1];
+
+          if (cookieValue !== undefined) {
+            _setOpen(cookieValue === 'true');
+          }
+          return;
+        }
+
+        console.log('🎛️ Cargando estado del sidebar desde Firebase...');
+        const { loadUserSettingsFromBackend } = await import('@/lib/backend-adapter');
+        const result = await loadUserSettingsFromBackend(currentUser.id);
+
+        if (result.success && result.data?.sidebarOpen !== undefined) {
+          console.log(`✅ Sidebar cargado: ${result.data.sidebarOpen ? 'abierto' : 'cerrado'}`);
+          _setOpen(result.data.sidebarOpen);
+        }
+      }
+
+      loadSidebarState();
+    }, [currentUser]);
+
     const setOpen = React.useCallback(
       (value: boolean | ((value: boolean) => boolean)) => {
         const openState = typeof value === "function" ? value(open) : value
@@ -80,9 +112,26 @@ const SidebarProvider = React.forwardRef<
         } else {
           _setOpen(openState)
         }
-        document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
+
+        // 🔥 GUARDAR EN FIREBASE si hay usuario autenticado
+        if (currentUser) {
+          console.log(`🎛️ Guardando estado del sidebar en Firebase: ${openState ? 'abierto' : 'cerrado'}`);
+          import('@/lib/backend-adapter').then(async ({ saveUserSettingsToBackend }) => {
+            const result = await saveUserSettingsToBackend(currentUser.id, { sidebarOpen: openState });
+
+            if (result.success) {
+              console.log('✅ Sidebar guardado en Firebase');
+            } else {
+              console.error('❌ Error guardando sidebar, usando cookies fallback:', result.error);
+              document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
+            }
+          });
+        } else {
+          // Sin usuario, usar cookies
+          document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
+        }
       },
-      [setOpenProp, open]
+      [setOpenProp, open, currentUser]
     )
 
     const toggleSidebar = React.useCallback(() => {

@@ -11,6 +11,7 @@ const COLLECTIONS = {
   VENDORS: 'vendors', // Colección para vendors (puede crecer mucho)
   VENDOR_IMAGES: 'vendorImages', // Colección separada para imágenes base64 de vendors (evita exceder 1MB)
   USERS: 'users', // Colección para usuarios
+  USER_SETTINGS: 'userSettings', // Colección para configuraciones de usuario (rol activo, preferencias)
   DRIVERS: 'drivers', // Colección para conductores
   ORDERS: 'orders', // Colección para órdenes
   CATEGORIES: 'categories', // Colección para categorías

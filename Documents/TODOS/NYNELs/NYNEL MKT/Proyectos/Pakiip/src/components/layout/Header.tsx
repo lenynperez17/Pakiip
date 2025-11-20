@@ -23,6 +23,7 @@ import { useToast } from "@/hooks/use-toast";
 import { reverseGeocode, searchPlaces, GeocodeResult } from "@/lib/google-geocoding";
 import { RoleSwitcher } from "@/components/RoleSwitcher";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
+import { useLocation } from "@/hooks/use-location";
 
 
 // Componente AppLogo eliminado - header sin logo para diseño más limpio
@@ -34,9 +35,22 @@ export function Header() {
   const { appSettings: settings, currentUser, logout, cities, selectedCity, setSelectedCity } = useAppData();
   const { toast } = useToast();
 
-  // Estados para la ubicación actual
+  // 🎯 Usar nuevo hook de ubicación profesional
+  const {
+    location: userLocation,
+    isLoading: isLoadingLocation,
+    error: locationError,
+    nearestCity,
+    refreshLocation
+  } = useLocation(cities, {
+    autoRequest: true,
+    useIPFallback: true,
+    enableCache: true,
+    minAccuracy: 10000 // Aceptar hasta 10km para el header (menos exigente)
+  });
+
+  // Dirección actual para mostrar en el header
   const [currentAddress, setCurrentAddress] = useState<string | null>(null);
-  const [isLoadingLocation, setIsLoadingLocation] = useState(false);
 
   // Estados para el modal de búsqueda de ubicación
   const [locationSheetOpen, setLocationSheetOpen] = useState(false);
@@ -47,42 +61,84 @@ export function Header() {
   // Estado para el modo oscuro
   const [isDarkMode, setIsDarkMode] = useState(false);
 
-  // Cargar preferencia de tema desde localStorage al montar
+  // 🔥 CARGAR tema de Firebase al montar/cambiar usuario
   useEffect(() => {
-    const savedTheme = localStorage.getItem('theme');
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const shouldBeDark = savedTheme === 'dark' || (!savedTheme && prefersDark);
-    setIsDarkMode(shouldBeDark);
-    if (shouldBeDark) {
-      document.documentElement.classList.add('dark');
-    }
-  }, []);
+    async function loadTheme() {
+      // Si hay usuario, cargar de Firebase
+      if (currentUser) {
+        console.log('🎨 Cargando tema desde Firebase...');
+        const { loadUserSettingsFromBackend } = await import('@/lib/backend-adapter');
+        const result = await loadUserSettingsFromBackend(currentUser.id);
 
-  // Alternar modo oscuro
-  const toggleDarkMode = () => {
+        if (result.success && result.data?.theme) {
+          const isDark = result.data.theme === 'dark';
+          setIsDarkMode(isDark);
+          if (isDark) {
+            document.documentElement.classList.add('dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+          }
+          console.log(`✅ Tema cargado: ${result.data.theme}`);
+          return;
+        }
+      }
+
+      // Si no hay usuario o no hay tema guardado, usar preferencia del sistema
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      setIsDarkMode(prefersDark);
+      if (prefersDark) {
+        document.documentElement.classList.add('dark');
+      }
+    }
+
+    loadTheme();
+  }, [currentUser]);
+
+  // 🔥 ALTERNAR modo oscuro y guardar en Firebase
+  const toggleDarkMode = async () => {
     const newDarkMode = !isDarkMode;
     setIsDarkMode(newDarkMode);
+
     if (newDarkMode) {
       document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
     } else {
       document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
+    }
+
+    // Guardar en Firebase si hay usuario
+    if (currentUser) {
+      console.log(`🎨 Guardando tema en Firebase: ${newDarkMode ? 'dark' : 'light'}`);
+      const { saveUserSettingsToBackend } = await import('@/lib/backend-adapter');
+      const result = await saveUserSettingsToBackend(currentUser.id, { theme: newDarkMode ? 'dark' : 'light' });
+
+      if (result.success) {
+        console.log('✅ Tema guardado en Firebase');
+      } else {
+        console.error('❌ Error guardando tema:', result.error);
+      }
     }
   };
 
   // 🐛 DEBUG: Verificar que el Header tiene max-width aplicado
   console.log('🎨 [HEADER] Renderizando con diseño limitado a max-w-7xl');
 
-  // Obtener ubicación actual al montar el componente
+  // Actualizar dirección cuando cambia la ubicación
   useEffect(() => {
-    // Pequeño delay para asegurar que el componente esté montado
-    const timer = setTimeout(() => {
-      getCurrentLocation();
-    }, 100);
-
-    return () => clearTimeout(timer);
-  }, []);
+    if (userLocation) {
+      // Usar la dirección del geocoding si está disponible
+      if (userLocation.address) {
+        setCurrentAddress(userLocation.address);
+      } else if (userLocation.city) {
+        setCurrentAddress(`${userLocation.city}, ${userLocation.country || ''}`);
+      } else {
+        // Fallback a coordenadas
+        setCurrentAddress(`${userLocation.latitude.toFixed(4)}°, ${userLocation.longitude.toFixed(4)}°`);
+      }
+    } else if (!isLoadingLocation && locationError) {
+      // Si hay error y no estamos cargando, mostrar ubicación por defecto
+      setCurrentAddress("Lima, Perú");
+    }
+  }, [userLocation, isLoadingLocation, locationError]);
 
   // Efecto para búsqueda con debounce
   useEffect(() => {
@@ -123,81 +179,6 @@ export function Header() {
     setSearchQuery("");
     setSuggestions([]);
     setLocationSheetOpen(false);
-  };
-
-  const getCurrentLocation = () => {
-    setIsLoadingLocation(true);
-
-    // Verificar si geolocalización está disponible
-    if (!navigator.geolocation) {
-      setIsLoadingLocation(false);
-      setCurrentAddress("Lima, Perú");
-      console.log('⚠️ Navegador no soporta geolocalización, usando ubicación por defecto');
-      return;
-    }
-
-    // Intentar obtener ubicación con manejo robusto de errores
-    try {
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          try {
-            const { latitude, longitude, accuracy } = position.coords;
-
-            // LOG CRÍTICO: Mostrar precisión del GPS
-            const precisionKm = (accuracy / 1000).toFixed(2);
-            console.log('📍 Ubicación obtenida:', { latitude, longitude });
-            console.log(`🎯 Precisión del GPS: ${accuracy.toFixed(0)} metros (${precisionKm} km)`);
-
-            if (accuracy > 1000) {
-              console.warn(`⚠️ ¡GPS IMPRECISO! El margen de error es de ${precisionKm} km. Considera usar búsqueda manual para mayor precisión.`);
-            } else if (accuracy > 100) {
-              console.log(`ℹ️ GPS con precisión media (${accuracy.toFixed(0)}m). La dirección puede no ser exacta.`);
-            } else {
-              console.log(`✅ GPS con buena precisión (${accuracy.toFixed(0)}m).`);
-            }
-
-            // Usar Google Maps Geocoding API
-            const result = await reverseGeocode(latitude, longitude);
-
-            if (result) {
-              setCurrentAddress(result.formattedAddress);
-              setIsLoadingLocation(false);
-              console.log('✅ Dirección obtenida con Google Maps:', result.formattedAddress);
-            } else {
-              // Si falla la API, mostrar coordenadas
-              const coordsText = `${latitude.toFixed(4)}°, ${longitude.toFixed(4)}°`;
-              setCurrentAddress(coordsText);
-              setIsLoadingLocation(false);
-              console.log('⚠️ Error en Google Maps API, mostrando coordenadas:', coordsText);
-            }
-          } catch (err) {
-            console.log('⚠️ Error procesando ubicación:', err);
-            setCurrentAddress("Lima, Perú");
-            setIsLoadingLocation(false);
-          }
-        },
-        (error) => {
-          // Manejo silencioso de errores - solo usar ubicación por defecto
-          setIsLoadingLocation(false);
-          setCurrentAddress("Lima, Perú");
-
-          // Solo mostrar logs si no es error de permisos
-          if (error?.code !== 1) {
-            console.log('ℹ️ No se pudo obtener ubicación, usando Lima, Perú por defecto');
-          }
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 8000,
-          maximumAge: 300000
-        }
-      );
-    } catch (err) {
-      // Si hay algún error al llamar a geolocation, usar ubicación por defecto
-      console.log('⚠️ Error al acceder a geolocalización:', err);
-      setIsLoadingLocation(false);
-      setCurrentAddress("Lima, Perú");
-    }
   };
 
   const handleLogout = () => {
@@ -316,7 +297,7 @@ export function Header() {
               {/* Botón para obtener ubicación GPS */}
               <Button
                 onClick={() => {
-                  getCurrentLocation();
+                  refreshLocation();
                   setLocationSheetOpen(false);
                 }}
                 disabled={isLoadingLocation}

@@ -3,8 +3,9 @@
 "use client";
 
 import { Product } from '@/lib/placeholder-data';
-import React, { createContext, useContext, useReducer, ReactNode, useMemo } from 'react';
+import React, { createContext, useContext, useReducer, ReactNode, useMemo, useEffect, useRef } from 'react';
 import { useAppData } from './use-app-data';
+import { saveCartToBackend, loadCartFromBackend } from '@/lib/backend-adapter';
 
 type CartItemOptions = {
     cutlery?: boolean;
@@ -13,7 +14,7 @@ type CartItemOptions = {
 
 type CartItem = {
   // A unique ID for this specific cart instance, combining product and options
-  instanceId: string; 
+  instanceId: string;
   productId: string;
   quantity: number;
   options?: CartItemOptions;
@@ -62,7 +63,7 @@ const cartReducer = (state: CartState, action: CartAction): CartState => {
       const { product, options } = action.payload;
       const instanceId = createInstanceId(product.id, options);
       const existingItem = state.items.find(item => item.instanceId === instanceId);
-      
+
       if (existingItem) {
         return {
           ...state,
@@ -114,18 +115,85 @@ const initialState: CartState = {
 
 export const CartProvider = ({ children }: { children: ReactNode }) => {
   const [state, dispatch] = useReducer(cartReducer, initialState);
-  const { getAllProducts, getVendorById } = useAppData();
+  const { getAllProducts, currentUser } = useAppData();
+  const isLoadingCart = useRef(false);
+  const hasLoadedCart = useRef(false);
+
+  // 🔥 CARGAR CARRITO DE FIREBASE al montar/cambiar usuario
+  useEffect(() => {
+    async function loadCart() {
+      if (!currentUser || isLoadingCart.current || hasLoadedCart.current) return;
+
+      isLoadingCart.current = true;
+      console.log('🛒 Cargando carrito de Firebase para usuario:', currentUser.id);
+
+      try {
+        const result = await loadCartFromBackend(currentUser.id);
+
+        if (result.success && result.data?.items) {
+          console.log(`✅ Carrito cargado: ${result.data.items.length} items`);
+          dispatch({ type: 'SET_STATE', payload: { items: result.data.items } });
+        } else {
+          console.log('📦 Carrito vacío');
+        }
+
+        hasLoadedCart.current = true;
+      } catch (error) {
+        console.error('❌ Error cargando carrito:', error);
+      } finally {
+        isLoadingCart.current = false;
+      }
+    }
+
+    loadCart();
+  }, [currentUser]);
+
+  // 🔥 GUARDAR CARRITO EN FIREBASE cada vez que cambia
+  useEffect(() => {
+    async function saveCart() {
+      // No guardar si:
+      // 1. No hay usuario autenticado
+      // 2. Estamos cargando el carrito inicial
+      // 3. Aún no hemos cargado el carrito desde Firebase
+      if (!currentUser || isLoadingCart.current || !hasLoadedCart.current) return;
+
+      console.log('💾 Guardando carrito en Firebase...');
+
+      try {
+        const result = await saveCartToBackend(currentUser.id, { items: state.items });
+
+        if (result.success) {
+          console.log(`✅ Carrito guardado: ${state.items.length} items`);
+        } else {
+          console.error('❌ Error guardando carrito:', result.error);
+        }
+      } catch (error) {
+        console.error('❌ Error guardando carrito:', error);
+      }
+    }
+
+    saveCart();
+  }, [state.items, currentUser]);
+
+  // 🧹 LIMPIAR carrito cuando el usuario cierra sesión
+  useEffect(() => {
+    if (!currentUser && hasLoadedCart.current) {
+      console.log('🧹 Usuario cerró sesión, limpiando carrito local');
+      dispatch({ type: 'CLEAR_CART' });
+      hasLoadedCart.current = false;
+    }
+  }, [currentUser]);
 
   const { items, totalPrice, totalItems } = useMemo(() => {
     const allProducts = getAllProducts();
-    
+
     const enriched = state.items.map(item => {
         const product = allProducts.find(p => p.id === item.productId);
-        return { 
-            product, 
-            quantity: item.quantity, 
-            options: item.options, 
-            instanceId: item.instanceId 
+        return {
+            product,
+            quantity: item.quantity,
+            options: item.options,
+            instanceId: item.instanceId
         };
     }).filter((item): item is EnrichedCartItem => !!item.product);
 

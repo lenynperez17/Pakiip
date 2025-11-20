@@ -136,6 +136,14 @@ export type User = {
     coinTransactions?: CoinTransaction[]; // Historial de transacciones
 };
 
+// Configuración de usuario guardada en Firebase para persistencia cloud
+// Se guarda en colección userSettings/{email} para sincronizar rol activo entre dispositivos
+export type UserSettings = {
+    email: string; // ID del documento (email del usuario)
+    selectedRole: 'customer' | 'vendor' | 'driver' | 'admin';
+    lastUpdated: string; // ISO timestamp
+};
+
 export type DeliveryDriver = {
     id: string;
     name: string;
