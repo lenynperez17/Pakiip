@@ -848,10 +848,16 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
     };
 
     const deleteVendor = async (vendorId: string) => {
-        // 0. Buscar vendor primero para obtener su email
+        // 0. Buscar vendor primero
         const vendor = data.vendors.find(v => v.id === vendorId);
         if (!vendor) {
             console.error(`❌ Vendor ${vendorId} no encontrado`);
+            return;
+        }
+
+        // Verificar que vendor.id existe
+        if (!vendor.id) {
+            console.error(`❌ Vendor sin ID válido:`, vendor);
             return;
         }
 

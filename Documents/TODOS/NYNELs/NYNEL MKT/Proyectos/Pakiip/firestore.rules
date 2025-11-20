@@ -49,8 +49,9 @@ service cloud.firestore {
 
     // Configuración de usuario (rol activo, preferencias)
     match /userSettings/{email} {
-      allow read: if isSignedIn() && request.auth.token.email == email;
-      allow write: if isSignedIn() && request.auth.token.email == email;
+      allow read: if isSignedIn() && (request.auth.token.email == email || isAdmin());
+      allow write: if isSignedIn() && (request.auth.token.email == email || isAdmin());
+      allow delete: if isAdmin();
     }
 
     // Ciudades - LECTURA PÚBLICA
