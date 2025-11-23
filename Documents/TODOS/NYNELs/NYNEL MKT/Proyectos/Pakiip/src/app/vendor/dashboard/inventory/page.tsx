@@ -122,17 +122,37 @@ const ManageDrinkOptions = ({ drinkOptions, setDrinkOptions, currencySymbol }: {
 function VendorInventoryPageContent() {
   const { vendors, appSettings, saveVendor, currentUser } = useAppData();
   const { toast } = useToast();
+  const searchParams = useSearchParams();
 
-  // 🔒 SEGURIDAD: Usar SOLO el ID del usuario logueado, NO query params
-  const loggedInVendorId = currentUser?.role === 'vendor' ? currentUser.id : null;
+  // 🔒 SEGURIDAD:
+  // - Vendors: usan su propio ID (buscar por email para mayor seguridad)
+  // - Admins: pueden ver cualquier tienda con query param ?vendorId=xxx
+  const getVendorId = (): string | null => {
+    if (currentUser?.role === 'vendor') {
+      // Buscar vendor por email del usuario logueado (más seguro que por ID)
+      const vendorByEmail = vendors.find(v => v.email?.toLowerCase() === currentUser.email?.toLowerCase());
+      return vendorByEmail?.id || null;
+    }
+    if (currentUser?.role === 'admin') {
+      // Admin puede ver cualquier tienda con query param
+      const queryVendorId = searchParams.get('vendorId');
+      if (queryVendorId) {
+        return queryVendorId;
+      }
+      // Si no hay query param, mostrar el primer vendor (o null)
+      return vendors.length > 0 ? vendors[0].id : null;
+    }
+    return null;
+  };
 
   const [vendor, setVendor] = useState<Vendor | undefined>(undefined);
 
   useEffect(() => {
-    if (loggedInVendorId) {
-      setVendor(vendors.find(v => v.id === loggedInVendorId));
+    const vendorId = getVendorId();
+    if (vendorId) {
+      setVendor(vendors.find(v => v.id === vendorId));
     }
-  }, [vendors, loggedInVendorId]);
+  }, [vendors, currentUser, searchParams]);
 
 
   const [isAddProductDialogOpen, setAddProductDialogOpen] = useState(false);
@@ -175,7 +195,7 @@ function VendorInventoryPageContent() {
     
     const newProduct: Product = {
         id: `p${Date.now()}`,
-        vendorId: loggedInVendorId,
+        vendorId: vendor?.id,
         name: formData.get('name') as string,
         description: formData.get('description') as string,
         price: parseFloat(formData.get('price') as string),
@@ -885,7 +905,7 @@ function VendorInventoryPageContent() {
 
 export default function VendorInventoryPage() {
     return (
-        <AuthGuard requireAuth={true} requireRole="vendor" redirectTo="/vendor/login">
+        <AuthGuard requireAuth={true} requireRole={["vendor", "admin"]} redirectTo="/vendor/login">
             <Suspense fallback={<div>Cargando inventario...</div>}>
                 <VendorInventoryPageContent />
             </Suspense>
