@@ -89,10 +89,10 @@ function tryInitializeFirebase(settings: AppSettings): boolean {
 }
 
 // 🔥 FIREBASE HELPER: Leer configuración de usuario desde Firestore
-async function getUserSettings(email: string): Promise<string | null> {
+async function getUserSettings(userId: string, email: string): Promise<string | null> {
   try {
     const db = getFirestore();
-    const docRef = doc(db, COLLECTIONS.USER_SETTINGS, email);
+    const docRef = doc(db, COLLECTIONS.USER_SETTINGS, userId);
     const docSnap = await getDoc(docRef);
 
     if (docSnap.exists()) {
@@ -107,10 +107,10 @@ async function getUserSettings(email: string): Promise<string | null> {
 }
 
 // 🔥 FIREBASE HELPER: Guardar configuración de usuario en Firestore
-async function updateUserSettings(email: string, role: 'customer' | 'vendor' | 'driver' | 'admin'): Promise<void> {
+async function updateUserSettings(userId: string, email: string, role: 'customer' | 'vendor' | 'driver' | 'admin'): Promise<void> {
   try {
     const db = getFirestore();
-    const docRef = doc(db, COLLECTIONS.USER_SETTINGS, email);
+    const docRef = doc(db, COLLECTIONS.USER_SETTINGS, userId);
 
     const settings: UserSettings = {
       email,
@@ -182,6 +182,8 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
     const [useFirestore, setUseFirestore] = useState(true); // Siempre usar Firestore
     const [syncStatus, setSyncStatus] = useState<'connected' | 'disconnected' | 'error' | 'reconnecting'>('disconnected');
     const [lastSyncError, setLastSyncError] = useState<string | null>(null);
+    // 🔒 Bandera para evitar bucle infinito: listener → setData → auto-sync → listener
+    const [isUpdatingFromListener, setIsUpdatingFromListener] = useState(false);
 
     const setSelectedCity = async (cityName: string | null) => {
         _setSelectedCity(cityName);
@@ -285,6 +287,9 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
                 // Usar el adapter que maneja tanto Firebase como PocketBase
                 unsubscribe = subscribeToAppData(
                     (updatedData) => {
+                        // 🔒 Marcar que el cambio viene del listener (evitar bucle con AUTO-SYNC)
+                        setIsUpdatingFromListener(true);
+
                         // ✅ VALIDAR datos antes de actualizar para evitar undefined
                         // Merge solo propiedades que existan en updatedData y tengan valores válidos
                         setData(prevData => {
@@ -337,6 +342,9 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
                         // Marcar como conectado y limpiar errores
                         setSyncStatus('connected');
                         setLastSyncError(null);
+
+                        // 🔒 Resetear bandera después de un tick (permitir que React procese el estado)
+                        setTimeout(() => setIsUpdatingFromListener(false), 100);
                     }
                 );
 
@@ -420,7 +428,7 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
 
     // Función helper para buscar usuario en los datos locales
     // 🔥 CORRECCIÓN: Ahora lee el rol guardado desde FIREBASE (no localStorage)
-    const findUserInData = async (email: string | null, phoneNumber: string | null): Promise<LoggedInUser | null> => {
+    const findUserInData = async (uid: string | null, email: string | null, phoneNumber: string | null): Promise<LoggedInUser | null> => {
         if (!email && !phoneNumber) return null;
 
         // 1. Obtener TODOS los roles del usuario
@@ -431,7 +439,7 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
         if (allRoles.length === 0) return null;
 
         // 2. Leer rol guardado desde FIREBASE (persistencia cloud)
-        const savedRole = email ? await getUserSettings(email) : null;
+        const savedRole = uid && email ? await getUserSettings(uid, email) : null;
 
         // 3. Si hay rol guardado Y es válido para este usuario, usarlo
         if (savedRole && allRoles.find(r => r.role === savedRole)) {
@@ -442,7 +450,7 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
         }
 
         // 🔥 4. Si NO hay rol guardado PERO tiene vendor/driver APROBADO, auto-activar ese rol
-        if (!savedRole && email) {
+        if (!savedRole && uid && email) {
             // Buscar vendor/driver aprobado (status='Activo')
             const approvedVendor = allRoles.find(r => r.role === 'vendor' && r.data.status === 'Activo');
             const approvedDriver = allRoles.find(r => r.role === 'driver' && r.data.status === 'Activo');
@@ -452,7 +460,7 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
 
             if (approvedRole) {
                 // Auto-guardar el rol aprobado en Firebase para persistencia
-                updateUserSettings(email, approvedRole.role as 'customer' | 'vendor' | 'driver' | 'admin').catch(err => {
+                updateUserSettings(uid, email, approvedRole.role as 'customer' | 'vendor' | 'driver' | 'admin').catch(err => {
                     console.error('❌ Error al auto-guardar rol aprobado:', err);
                 });
                 return { ...approvedRole.data, role: approvedRole.role };
@@ -477,7 +485,7 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
                 const phoneNumber = firebaseUser.phoneNumber;
 
                 // 🔥 CORRECCIÓN: await findUserInData porque ahora lee desde Firebase
-                const foundUser = await findUserInData(email || null, phoneNumber);
+                const foundUser = await findUserInData(firebaseUser.uid, email || null, phoneNumber);
 
                 // 🔥 AUTO-CREACIÓN AUTOMÁTICA: Si no se encuentra el usuario, crearlo como customer por defecto
                 if (!foundUser && (email || phoneNumber)) {
@@ -541,7 +549,7 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
                 const email = firebaseUser.email?.toLowerCase();
                 const phoneNumber = firebaseUser.phoneNumber;
 
-                const foundUser = await findUserInData(email || null, phoneNumber);
+                const foundUser = await findUserInData(firebaseUser.uid, email || null, phoneNumber);
 
                 if (foundUser) {
                     // ✅ Actualizar currentUser si cambió el rol o los datos
@@ -562,7 +570,9 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
     // --- Auth Functions ---
     const login = async (email: string): Promise<LoggedInUser | null> => {
         // Reutilizar findUserInData() para eliminar duplicación
-        const user = await findUserInData(email?.toLowerCase() || null, null);
+        const auth = getAuth();
+        const uid = auth.currentUser?.uid;
+        const user = await findUserInData(uid || null, email?.toLowerCase() || null, null);
         if (user) {
             setCurrentUser(user);
         }
@@ -598,9 +608,13 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
             setCurrentUser(newUser);
 
             // 🔥 CORRECCIÓN: Guardar rol seleccionado en FIREBASE (no localStorage) para persistencia cloud
-            updateUserSettings(currentUser.email, role).catch(err => {
-                console.error('Error al guardar rol en Firebase:', err);
-            });
+            const auth = getAuth();
+            const uid = auth.currentUser?.uid;
+            if (uid && currentUser.email) {
+                updateUserSettings(uid, currentUser.email, role).catch(err => {
+                    console.error('Error al guardar rol en Firebase:', err);
+                });
+            }
 
             return true;
         }
@@ -618,30 +632,9 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
         }
     }, [currentUser, data.users, data.vendors, data.drivers, data.admins]);
 
-    // 🔥 SINCRONIZACIÓN AUTOMÁTICA CON FIREBASE (GUARDAR INMEDIATAMENTE)
-    // Guarda TODO el documento después de CADA cambio
-    // ⚠️ SOLO SE EJECUTA PARA ADMINS (para evitar errores de permisos en otros usuarios)
-    useEffect(() => {
-        // No sincronizar si no está inicializado o no usa Firestore
-        if (!isInitialized || !useFirestore) return;
-
-        // ✅ SOLO admins pueden ejecutar el auto-sync (tienen permisos de escritura)
-        if (currentUser?.role !== 'admin') return;
-
-        // Debounce: esperar 2 segundos después del último cambio antes de guardar
-        // REDUCIDO de 30s a 2s para persistencia inmediata
-        const timeoutId = setTimeout(async () => {
-            const { currentUser, ...dataWithoutUser } = data as any;
-            const result = await saveAppDataToFirestore(dataWithoutUser);
-
-            if (!result.success) {
-                console.error('❌ [AUTO-SYNC] Error al sincronizar con Firebase:', result.error);
-            } else {
-            }
-        }, 2000); // Esperar 2 segundos de inactividad para persistencia rápida
-
-        return () => clearTimeout(timeoutId);
-    }, [data, isInitialized, useFirestore, currentUser]);
+    // 📝 NOTA: El AUTO-SYNC completo fue DESHABILITADO porque causaba bucles infinitos:
+    // listener → setData → auto-sync → escribe Firebase → listener detecta cambio → bucle
+    // Los cambios ahora se guardan INDIVIDUALMENTE en cada función (saveVendor, saveOrder, etc.)
 
     // --- Data Manipulation Functions ---
 
