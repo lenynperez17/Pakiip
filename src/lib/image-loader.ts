@@ -1,6 +1,5 @@
 // Custom Image Loader para Next.js
-// Maneja URLs firmadas de Firebase Storage sin doble encoding
-// Referencia: https://nextjs.org/docs/app/building-your-application/optimizing/images#loaders
+// Maneja URLs firmadas y externas correctamente
 
 interface ImageLoaderParams {
   src: string;
@@ -8,21 +7,15 @@ interface ImageLoaderParams {
   quality?: number;
 }
 
-export default function firebaseImageLoader({ src, width, quality }: ImageLoaderParams): string {
+export default function imageLoader({ src, width, quality }: ImageLoaderParams): string {
   // Si es una imagen base64, retornarla sin modificar
-  // Next.js puede renderizar base64 directamente sin necesidad de optimización
   if (src.startsWith('data:image/') || src.startsWith('data:')) {
     return src;
   }
 
-  // Si es una URL de Firebase Storage con firma (signed URL), retornarla sin modificar
+  // Si es una URL con firma (signed URL), retornarla sin modificar
   // para evitar el problema de doble encoding que causa 400 Bad Request
   if (src.includes('storage.googleapis.com') && src.includes('Signature=')) {
-    return src;
-  }
-
-  // Si es una URL de firebasestorage.googleapis.com (download URL), retornarla sin modificar
-  if (src.includes('firebasestorage.googleapis.com')) {
     return src;
   }
 

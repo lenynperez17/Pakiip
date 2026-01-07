@@ -13,7 +13,7 @@ import type { CoinTransaction, Reward } from "@/lib/placeholder-data";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AuthGuard } from "@/components/AuthGuard";
 
-// Funciones que reemplazan Firebase con llamadas a la API
+// Funciones para llamadas a la API
 async function getUserCoinsFromAPI(userId: string) {
   const res = await fetch(`/api/data/coins?userId=${userId}`);
   const data = await res.json();

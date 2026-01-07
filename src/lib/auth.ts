@@ -1,6 +1,6 @@
 /**
  * Configuración de NextAuth.js v5 para Pakiip
- * Reemplaza Firebase Auth con autenticación self-hosted
+ * Autenticación self-hosted con PostgreSQL
  */
 
 import NextAuth from "next-auth";

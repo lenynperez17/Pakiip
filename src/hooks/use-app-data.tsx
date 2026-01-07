@@ -2,12 +2,14 @@
 
 /**
  * Hook principal de datos de la aplicación
- * Migrado a PostgreSQL + NextAuth (sin Firebase)
+ * Usa PostgreSQL + NextAuth
  */
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from 'react';
 import { useSession, signOut as nextAuthSignOut } from 'next-auth/react';
 import { AppData, Vendor, Category, DeliveryDriver, User, AppSettings, Message, Product, Order, City, Admin, DebtTransaction, DeliveryZone, Favor } from '@/lib/placeholder-data';
+import { reverseGeocode } from '@/lib/google-geocoding';
+import { calculateDistance } from '@/lib/haversine';
 import {
   loadAppData,
   saveVendorToBackend,
@@ -37,6 +39,47 @@ import {
 } from '@/lib/backend-adapter';
 
 type LoggedInUser = (User | Vendor | DeliveryDriver | Admin) & { role: 'customer' | 'vendor' | 'driver' | 'admin' };
+
+// Tipos para ubicación compartida
+export type LocationAccuracy = 'excellent' | 'good' | 'medium' | 'poor' | 'very-poor';
+
+export interface UserLocation {
+  latitude: number;
+  longitude: number;
+  accuracy: number;
+  accuracyLevel: LocationAccuracy;
+  timestamp: number;
+  source: 'gps';
+  address?: string;
+  city?: string;
+  country?: string;
+}
+
+export interface LocationError {
+  code: 'PERMISSION_DENIED' | 'POSITION_UNAVAILABLE' | 'TIMEOUT' | 'UNKNOWN';
+  message: string;
+  canRetry: boolean;
+}
+
+// Configuración de ubicación - valores relajados para mejor compatibilidad
+const LOCATION_CONFIG = {
+  GPS_TIMEOUT: 30000,            // 30 segundos - GPS en interiores es lento
+  GPS_RETRY_TIMEOUT: 45000,      // 45 segundos para reintentos
+  EXCELLENT_ACCURACY: 100,       // < 100m = excelente
+  GOOD_ACCURACY: 500,            // < 500m = bueno
+  MEDIUM_ACCURACY: 1000,         // < 1km = medio (aceptable)
+  MAX_ACCEPTABLE_ACCURACY: 3000, // 3km máximo aceptable (GPS en interiores)
+  MAX_RETRIES: 2,                // 2 reintentos (menos espera)
+  RETRY_DELAY_MS: 1000,          // 1 segundo entre reintentos
+};
+
+function getAccuracyLevel(accuracy: number): LocationAccuracy {
+  if (accuracy < LOCATION_CONFIG.EXCELLENT_ACCURACY) return 'excellent';
+  if (accuracy < LOCATION_CONFIG.GOOD_ACCURACY) return 'good';
+  if (accuracy < LOCATION_CONFIG.MEDIUM_ACCURACY) return 'medium';
+  if (accuracy < 1000) return 'poor';
+  return 'very-poor';
+}
 
 // Estado inicial vacio - TODO se carga desde PostgreSQL
 const emptyAppData: AppData = {
@@ -76,11 +119,7 @@ const emptyAppData: AppData = {
       },
       cashOnDeliveryEnabled: true,
     },
-    shipping: {
-      baseRadiusKm: 3,
-      baseFee: 5.00,
-      feePerKm: 1.50,
-    },
+    shipping: {},
     promotionalBanners: [],
     announcementBanners: [],
   },
@@ -101,6 +140,17 @@ interface AppDataContextValue extends Omit<AppData, 'currentUser'> {
   switchRole: (role: 'customer' | 'vendor' | 'driver' | 'admin') => boolean;
   syncStatus: 'connected' | 'disconnected' | 'error' | 'reconnecting';
   lastSyncError: string | null;
+  // Ubicación compartida
+  userLocation: UserLocation | null;
+  isLoadingLocation: boolean;
+  locationError: LocationError | null;
+  locationPermissionStatus: 'prompt' | 'granted' | 'denied' | 'unknown';
+  requestLocation: (force?: boolean) => Promise<void>;
+  refreshLocation: () => Promise<void>;
+  setManualLocation: (address: string, coordinates: { lat: number; lng: number }) => Promise<void>;
+  clearManualLocation: () => Promise<void>;
+  isManualLocation: boolean;
+  nearestCity: City | null;
   saveVendor: (vendor: Vendor) => void;
   deleteVendor: (vendorId: string) => void;
   saveCategory: (category: Category) => void;
@@ -150,6 +200,15 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
   const [syncStatus, setSyncStatus] = useState<'connected' | 'disconnected' | 'error' | 'reconnecting'>('disconnected');
   const [lastSyncError, setLastSyncError] = useState<string | null>(null);
 
+  // Estados de ubicación compartida
+  const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
+  const [isLoadingLocation, setIsLoadingLocation] = useState(false);
+  const [locationError, setLocationError] = useState<LocationError | null>(null);
+  const [locationPermissionStatus, setLocationPermissionStatus] = useState<'prompt' | 'granted' | 'denied' | 'unknown'>('unknown');
+  const [hasAskedLocationPermission, setHasAskedLocationPermission] = useState(false);
+  const [isManualLocation, setIsManualLocation] = useState(false);
+  const isRequestingLocationRef = useRef(false);
+
   const setSelectedCity = async (cityName: string | null) => {
     _setSelectedCity(cityName);
 
@@ -184,6 +243,251 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
 
     loadUserSettings();
   }, [currentUser, data.cities]);
+
+  // ==================== FUNCIONES DE UBICACIÓN ====================
+
+  /**
+   * Estrategia híbrida de geolocalización (como Rappi, Uber Eats, PedidosYa)
+   *
+   * Fuentes:
+   * - https://blog.logrocket.com/what-you-need-know-while-using-geolocation-api/
+   * - https://www.andygup.net/html5-geolocation-api-how-accurate-is-it-really/
+   * - https://github.com/gregsramblings/getAccurateCurrentPosition
+   *
+   * Estrategia:
+   * 1. Primero: enableHighAccuracy=false (WiFi/celular) - rápido ~2-3 seg
+   * 2. Si falla: enableHighAccuracy=true (GPS real) - más lento pero preciso
+   * 3. Timeout generoso para dar tiempo al GPS de "calentar"
+   */
+
+  // Función auxiliar para obtener ubicación con opciones específicas
+  const getPositionWithOptions = useCallback((highAccuracy: boolean, timeout: number): Promise<GeolocationPosition> => {
+    return new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(
+        resolve,
+        reject,
+        {
+          enableHighAccuracy: highAccuracy,
+          timeout: timeout,
+          maximumAge: highAccuracy ? 0 : 60000, // Sin caché para alta precisión
+        }
+      );
+    });
+  }, []);
+
+  // Convertir GeolocationPosition a UserLocation
+  const positionToUserLocation = useCallback(async (position: GeolocationPosition): Promise<UserLocation> => {
+    const { latitude, longitude, accuracy } = position.coords;
+
+    // Obtener dirección con geocoding reverso
+    let address: string | undefined;
+    try {
+      const geocodeResult = await reverseGeocode(latitude, longitude);
+      if (geocodeResult) {
+        address = geocodeResult.formattedAddress;
+      }
+    } catch {
+      // Geocoding falló, continuar sin dirección
+    }
+
+    return {
+      latitude,
+      longitude,
+      accuracy,
+      accuracyLevel: getAccuracyLevel(accuracy),
+      timestamp: Date.now(),
+      source: 'gps',
+      address,
+    };
+  }, []);
+
+  const getGPSLocation = useCallback(async (): Promise<UserLocation> => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      throw {
+        code: 'POSITION_UNAVAILABLE',
+        message: 'Tu navegador no soporta geolocalización',
+        canRetry: false,
+      } as LocationError;
+    }
+
+    // PASO 1: Intentar con baja precisión primero (WiFi/celular) - más rápido
+    console.log('[GPS] Paso 1: Intentando ubicación rápida (WiFi/celular)...');
+    try {
+      const position = await getPositionWithOptions(false, 8000);
+      console.log(`[GPS] Ubicación rápida obtenida: precisión ${Math.round(position.coords.accuracy)}m`);
+      return await positionToUserLocation(position);
+    } catch (error1) {
+      console.log('[GPS] Ubicación rápida falló, intentando GPS de alta precisión...');
+    }
+
+    // PASO 2: Si falla, intentar con alta precisión (GPS real)
+    console.log('[GPS] Paso 2: Intentando GPS de alta precisión...');
+    try {
+      const position = await getPositionWithOptions(true, 15000);
+      console.log(`[GPS] GPS alta precisión obtenido: precisión ${Math.round(position.coords.accuracy)}m`);
+      return await positionToUserLocation(position);
+    } catch (error2) {
+      const geoError = error2 as GeolocationPositionError;
+      console.log(`[GPS] Error final: ${geoError.message}`);
+
+      let locationErr: LocationError;
+      switch (geoError.code) {
+        case geoError.PERMISSION_DENIED:
+          locationErr = {
+            code: 'PERMISSION_DENIED',
+            message: 'Permisos de ubicación denegados.',
+            canRetry: false,
+          };
+          break;
+        case geoError.POSITION_UNAVAILABLE:
+          locationErr = {
+            code: 'POSITION_UNAVAILABLE',
+            message: 'Ubicación no disponible.',
+            canRetry: true,
+          };
+          break;
+        case geoError.TIMEOUT:
+          locationErr = {
+            code: 'TIMEOUT',
+            message: 'Tiempo de espera agotado.',
+            canRetry: true,
+          };
+          break;
+        default:
+          locationErr = {
+            code: 'UNKNOWN',
+            message: 'Error desconocido al obtener ubicación.',
+            canRetry: true,
+          };
+      }
+      throw locationErr;
+    }
+  }, [getPositionWithOptions, positionToUserLocation]);
+
+  // Solicitar ubicación GPS
+  const requestLocation = useCallback(async (force: boolean = false) => {
+    if (isRequestingLocationRef.current && !force) {
+      return;
+    }
+
+    isRequestingLocationRef.current = true;
+    setIsLoadingLocation(true);
+    setLocationError(null);
+
+    try {
+      // Verificar permisos
+      if (typeof navigator !== 'undefined' && navigator.permissions) {
+        try {
+          const permission = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
+          setLocationPermissionStatus(permission.state);
+
+          if (permission.state === 'denied') {
+            throw {
+              code: 'PERMISSION_DENIED',
+              message: 'Permisos de ubicación denegados. Habilita el GPS en la configuración de tu navegador.',
+              canRetry: false,
+            } as LocationError;
+          }
+        } catch (permError) {
+          if ((permError as LocationError).code === 'PERMISSION_DENIED') {
+            throw permError;
+          }
+        }
+      }
+
+      // Obtener ubicación GPS fresca
+      const gpsLocation = await getGPSLocation();
+
+      setUserLocation(gpsLocation);
+      setIsLoadingLocation(false);
+      setLocationError(null);
+      setLocationPermissionStatus('granted');
+      setHasAskedLocationPermission(true);
+    } catch (error: unknown) {
+      setIsLoadingLocation(false);
+      setLocationError(error as LocationError);
+      setHasAskedLocationPermission(true);
+    } finally {
+      isRequestingLocationRef.current = false;
+    }
+  }, [getGPSLocation]);
+
+  // Refrescar ubicación (forzar GPS nuevo)
+  const refreshLocation = useCallback(() => {
+    // Limpiar ubicación manual si existe
+    setIsManualLocation(false);
+    return requestLocation(true);
+  }, [requestLocation]);
+
+  // Establecer ubicación manual (el usuario elige su dirección) - SOLO para sesión actual
+  const setManualLocation = useCallback((address: string, coordinates: { lat: number; lng: number }) => {
+    const manualLoc: UserLocation = {
+      latitude: coordinates.lat,
+      longitude: coordinates.lng,
+      accuracy: 0, // Precisión perfecta porque es manual
+      accuracyLevel: 'excellent',
+      timestamp: Date.now(),
+      source: 'gps',
+      address,
+    };
+
+    setUserLocation(manualLoc);
+    setIsManualLocation(true);
+    setLocationError(null);
+    setIsLoadingLocation(false);
+
+    // NO guardamos en localStorage ni backend - solo para esta sesión
+    console.log('[LOCATION] Ubicación manual establecida (sesión):', address);
+  }, []);
+
+  // Limpiar ubicación manual y volver a GPS
+  const clearManualLocation = useCallback(() => {
+    setIsManualLocation(false);
+    // Solicitar nueva ubicación GPS
+    requestLocation(true);
+  }, [requestLocation]);
+
+  // Auto-request ubicación GPS al inicializar - EN SEGUNDO PLANO (no bloquea la página)
+  useEffect(() => {
+    if (isInitialized && !hasAskedLocationPermission) {
+      // Usar setTimeout para no bloquear el render inicial
+      const timeoutId = setTimeout(() => {
+        console.log('[LOCATION] Solicitando ubicación GPS en segundo plano...');
+        requestLocation();
+      }, 100); // Pequeño delay para que la página renderice primero
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [isInitialized, hasAskedLocationPermission, requestLocation]);
+
+  // Encontrar ciudad más cercana
+  const findNearestCity = useCallback((): City | null => {
+    if (!userLocation || !data.cities || data.cities.length === 0) return null;
+
+    const { latitude, longitude } = userLocation;
+
+    let nearestCity: City | null = null;
+    let minDistance = Infinity;
+
+    data.cities.forEach(city => {
+      if (city.coordinates) {
+        const distance = calculateDistance(
+          latitude,
+          longitude,
+          city.coordinates.lat,
+          city.coordinates.lng
+        );
+
+        if (distance < minDistance) {
+          minDistance = distance;
+          nearestCity = city;
+        }
+      }
+    });
+
+    return nearestCity;
+  }, [userLocation, data.cities]);
+
 
   // Cargar datos iniciales desde PostgreSQL
   useEffect(() => {
@@ -814,15 +1118,19 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const saveSettings = async (settings: AppSettings) => {
-    setData(prevData => ({ ...prevData, appSettings: settings }));
-
+  const saveSettings = async (settings: AppSettings): Promise<boolean> => {
     if (isInitialized) {
       const result = await saveSettingsToBackend(settings);
-      if (!result.success) {
+      if (result.success) {
+        // Solo actualizar estado local si el backend confirmó el guardado
+        setData(prevData => ({ ...prevData, appSettings: settings }));
+        return true;
+      } else {
         console.error('Error al guardar configuracion:', result.error);
+        return false;
       }
     }
+    return false;
   };
 
   const addMessage = async (newMessage: Omit<Message, 'id' | 'timestamp'>) => {
@@ -1064,6 +1372,17 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
     switchRole,
     syncStatus,
     lastSyncError,
+    // Ubicación compartida
+    userLocation,
+    isLoadingLocation,
+    locationError,
+    locationPermissionStatus,
+    requestLocation,
+    refreshLocation,
+    setManualLocation,
+    clearManualLocation,
+    isManualLocation,
+    nearestCity: findNearestCity(),
     saveVendor,
     deleteVendor,
     saveCategory,

@@ -1,6 +1,6 @@
 /**
  * API de Upload de Imágenes
- * Reemplaza Firebase Storage con almacenamiento local
+ * Usa almacenamiento local en servidor
  */
 
 import { NextRequest, NextResponse } from "next/server";

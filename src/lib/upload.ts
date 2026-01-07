@@ -1,6 +1,6 @@
 /**
  * Utilidades de Upload de Imagenes
- * Usa la API local en lugar de Firebase Storage
+ * Usa la API local con almacenamiento en servidor
  */
 
 /**
@@ -83,10 +83,3 @@ export async function uploadImageFromUrl(
   }
 }
 
-/**
- * @deprecated Funcion de compatibilidad - no hace nada
- * Mantener para evitar errores en imports existentes
- */
-export function initializeFirebase(_config?: any): void {
-  // No-op
-}
