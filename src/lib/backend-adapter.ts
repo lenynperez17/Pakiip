@@ -375,7 +375,8 @@ export async function deleteFavorFromBackend(favorId: string): Promise<{
 
 /**
  * Suscribirse a cambios en tiempo real usando POLLING
- * Consulta la API cada 5 segundos para detectar cambios
+ * Consulta la API cada 30 segundos para detectar cambios
+ * IMPORTANTE: Intervalo aumentado para evitar sobrescribir cambios del admin
  */
 export function subscribeToAppData(
   callback: (data: Omit<AppData, 'currentUser'>) => void
@@ -387,8 +388,8 @@ export function subscribeToAppData(
       const json = await res.json();
 
       if (json.success && json.data) {
-        // Crear hash simple para detectar cambios
-        const newHash = JSON.stringify(json.data).length.toString();
+        // Crear hash basado en el contenido real del JSON
+        const newHash = JSON.stringify(json.data);
 
         if (newHash !== lastDataHash) {
           lastDataHash = newHash;
@@ -403,8 +404,8 @@ export function subscribeToAppData(
   // Ejecutar inmediatamente
   fetchData();
 
-  // Iniciar intervalo
-  pollingInterval = setInterval(fetchData, 5000);
+  // Iniciar intervalo (30 segundos para dar tiempo a que los cambios persistan)
+  pollingInterval = setInterval(fetchData, 30000);
 
   // Retornar función para detener el polling
   return () => {

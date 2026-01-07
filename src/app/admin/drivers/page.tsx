@@ -36,7 +36,7 @@ function AdminDriversPageContent() {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     const newDriver: DeliveryDriver = {
-        id: `d${Date.now()}`,
+        id: '', // Dejar vacío para que Prisma genere un ID real
         name: formData.get('name') as string,
         email: formData.get('email') as string,
         dni: formData.get('dni') as string,

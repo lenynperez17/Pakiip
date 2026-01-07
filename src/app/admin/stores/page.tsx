@@ -79,7 +79,7 @@ function AdminStoresPageContent() {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     const newVendor: Vendor = {
-        id: `v${Date.now()}`,
+        id: '', // Dejar vacío para que Prisma genere un ID real
         name: formData.get('name') as string,
         email: formData.get('email') as string,
         phone: formData.get('phone') as string,

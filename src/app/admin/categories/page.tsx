@@ -44,7 +44,7 @@ function AdminCategoriesPageContent() {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     const newCategory: Category = {
-        id: `cat${Date.now()}`,
+        id: '', // Dejar vacío para que Prisma genere un ID real
         name: formData.get('name') as string,
         imageUrl: addPreview || 'https://placehold.co/100x80.png',
         imageHint: (formData.get('name') as string).toLowerCase()

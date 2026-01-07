@@ -106,10 +106,34 @@ export async function getUserById(id: string) {
 }
 
 export async function updateUser(id: string, data: Partial<User>) {
-  return prisma.user.update({
-    where: { id },
+  // Verificar si el usuario existe
+  const existing = await prisma.user.findUnique({ where: { id } });
+
+  if (existing) {
+    // Actualizar usuario existente
+    return prisma.user.update({
+      where: { id },
+      data: {
+        name: data.name,
+        phone: data.phone,
+        dni: data.dni,
+        city: data.city,
+        sector: data.sector,
+        address: data.address,
+        lat: data.lat,
+        lng: data.lng,
+        profileImageUrl: data.profileImageUrl,
+        coins: data.coins,
+      },
+    });
+  }
+
+  // Si no existe, crear usuario nuevo
+  return prisma.user.create({
     data: {
-      name: data.name,
+      id,
+      name: data.name || "",
+      email: (data as any).email || `${id}@pakiip.com`,
       phone: data.phone,
       dni: data.dni,
       city: data.city,
@@ -118,8 +142,13 @@ export async function updateUser(id: string, data: Partial<User>) {
       lat: data.lat,
       lng: data.lng,
       profileImageUrl: data.profileImageUrl,
+      coins: data.coins || 0,
     },
   });
+}
+
+export async function deleteUser(id: string) {
+  return prisma.user.delete({ where: { id } });
 }
 
 // ============================================
@@ -132,6 +161,7 @@ export async function getVendors() {
       products: {
         include: {
           drinks: true,
+          variants: true,
         },
       },
       productCategories: true,
@@ -180,6 +210,16 @@ export async function getVendors() {
       vendorId: p.vendorId,
       vendorCategoryId: p.vendorCategoryId || undefined,
       stock: p.stock,
+      hasVariants: p.hasVariants || false,
+      variants: p.variants?.map((v) => ({
+        id: v.id,
+        name: v.name,
+        price: decimalToNumber(v.price),
+        costPrice: decimalToNumber(v.costPrice),
+        stock: v.stock,
+        isDefault: v.isDefault,
+        sortOrder: v.sortOrder,
+      })) || [],
       options: {
         packagingFee: p.packagingFee ? decimalToNumber(p.packagingFee) : undefined,
         cutleryPrice: p.cutleryPrice ? decimalToNumber(p.cutleryPrice) : undefined,
@@ -203,7 +243,7 @@ export async function getVendorById(id: string) {
     where: { id },
     include: {
       products: {
-        include: { drinks: true },
+        include: { drinks: true, variants: true },
       },
       productCategories: true,
       category: true,
@@ -246,7 +286,28 @@ export async function getVendorById(id: string) {
       isFeatured: p.isFeatured,
       imageUrl: p.imageUrl || "",
       vendorId: p.vendorId,
+      vendorCategoryId: p.vendorCategoryId || undefined,
       stock: p.stock,
+      hasVariants: p.hasVariants || false,
+      variants: p.variants?.map((v) => ({
+        id: v.id,
+        name: v.name,
+        price: decimalToNumber(v.price),
+        costPrice: decimalToNumber(v.costPrice),
+        stock: v.stock,
+        isDefault: v.isDefault,
+        sortOrder: v.sortOrder,
+      })) || [],
+      options: {
+        packagingFee: p.packagingFee ? decimalToNumber(p.packagingFee) : undefined,
+        cutleryPrice: p.cutleryPrice ? decimalToNumber(p.cutleryPrice) : undefined,
+        cutleryCostPrice: p.cutleryCostPrice ? decimalToNumber(p.cutleryCostPrice) : undefined,
+        drinks: p.drinks.map((d) => ({
+          name: d.name,
+          price: decimalToNumber(d.price),
+          costPrice: decimalToNumber(d.costPrice),
+        })),
+      },
     })),
     productCategories: vendor.productCategories.map((c) => ({
       id: c.id,
@@ -302,7 +363,10 @@ export async function saveVendor(data: any) {
     ownerId: vendorData.ownerId,
   };
 
-  if (id) {
+  // Verificar si el vendor existe en la BD (sin importar el formato del ID)
+  const existingVendor = id ? await prisma.vendor.findUnique({ where: { id } }) : null;
+
+  if (existingVendor) {
     // Actualizar vendor existente
     const vendor = await prisma.vendor.update({
       where: { id },
@@ -311,75 +375,162 @@ export async function saveVendor(data: any) {
 
     // Actualizar productos
     if (products) {
+      // Obtener IDs de productos que vienen del frontend
+      const productIdsFromFrontend = products
+        .filter((p: any) => p.id && !p.id.startsWith('p')) // Solo IDs reales de la DB (no temporales)
+        .map((p: any) => p.id);
+
+      // Obtener productos actuales del vendor en la DB
+      const existingProductsInDb = await prisma.product.findMany({
+        where: { vendorId: id },
+        select: { id: true },
+      });
+
+      // Encontrar productos que están en la DB pero no en el frontend (eliminados)
+      const productIdsToDelete = existingProductsInDb
+        .filter((dbProduct) => !productIdsFromFrontend.includes(dbProduct.id))
+        .map((p) => p.id);
+
+      // Eliminar productos que ya no existen en el frontend
+      if (productIdsToDelete.length > 0) {
+        // Primero eliminar variantes y bebidas asociadas
+        await prisma.productVariant.deleteMany({
+          where: { productId: { in: productIdsToDelete } },
+        });
+        await prisma.productDrink.deleteMany({
+          where: { productId: { in: productIdsToDelete } },
+        });
+        // Luego eliminar los productos
+        await prisma.product.deleteMany({
+          where: { id: { in: productIdsToDelete } },
+        });
+      }
+
       for (const product of products) {
         if (product.id) {
-          // Actualizar producto existente
-          await prisma.product.update({
+          // Verificar si el producto existe en la base de datos
+          const existingProduct = await prisma.product.findUnique({
             where: { id: product.id },
-            data: {
-              name: product.name,
-              description: product.description,
-              price: product.price,
-              costPrice: product.costPrice,
-              offerPrice: product.offerPrice,
-              isOffer: product.isOffer,
-              isFeatured: product.isFeatured,
-              imageUrl: product.imageUrl,
-              stock: product.stock,
-              packagingFee: product.options?.packagingFee,
-              cutleryPrice: product.options?.cutleryPrice,
-              cutleryCostPrice: product.options?.cutleryCostPrice,
-              vendorCategoryId: product.vendorCategoryId || null,
-              hasVariants: product.hasVariants || false,
-            },
           });
 
-          // Actualizar variantes del producto
-          if (product.hasVariants && product.variants && product.variants.length > 0) {
-            // Eliminar variantes existentes y crear nuevas
-            await prisma.productVariant.deleteMany({
-              where: { productId: product.id },
+          if (existingProduct) {
+            // Actualizar producto existente
+            await prisma.product.update({
+              where: { id: product.id },
+              data: {
+                name: product.name,
+                description: product.description,
+                price: product.price,
+                costPrice: product.costPrice,
+                offerPrice: product.offerPrice,
+                isOffer: product.isOffer,
+                isFeatured: product.isFeatured,
+                imageUrl: product.imageUrl,
+                stock: product.stock,
+                packagingFee: product.options?.packagingFee,
+                cutleryPrice: product.options?.cutleryPrice,
+                cutleryCostPrice: product.options?.cutleryCostPrice,
+                vendorCategoryId: product.vendorCategoryId || null,
+                hasVariants: product.hasVariants || false,
+              },
             });
-            await prisma.productVariant.createMany({
-              data: product.variants.map((v: any, index: number) => ({
-                productId: product.id,
-                name: v.name,
-                price: v.price,
-                costPrice: v.costPrice || 0,
-                stock: v.stock,
-                isDefault: v.isDefault || index === 0,
-                sortOrder: v.sortOrder || index,
-              })),
-            });
-          } else {
-            // Si no tiene variantes, eliminar las existentes
-            await prisma.productVariant.deleteMany({
-              where: { productId: product.id },
-            });
-          }
 
-          // Actualizar bebidas del producto
-          if (product.drinks && product.drinks.length > 0) {
-            // Eliminar bebidas existentes y crear nuevas
-            await prisma.productDrink.deleteMany({
-              where: { productId: product.id },
-            });
-            await prisma.productDrink.createMany({
-              data: product.drinks.map((d: any) => ({
-                productId: product.id,
-                name: d.name,
-                price: d.price,
-                costPrice: d.costPrice || 0,
-              })),
-            });
+            // Actualizar variantes del producto
+            if (product.hasVariants && product.variants && product.variants.length > 0) {
+              // Eliminar variantes existentes y crear nuevas
+              await prisma.productVariant.deleteMany({
+                where: { productId: product.id },
+              });
+              await prisma.productVariant.createMany({
+                data: product.variants.map((v: any, index: number) => ({
+                  productId: product.id,
+                  name: v.name,
+                  price: v.price,
+                  costPrice: v.costPrice || 0,
+                  stock: v.stock,
+                  isDefault: v.isDefault || index === 0,
+                  sortOrder: v.sortOrder || index,
+                })),
+              });
+            } else {
+              // Si no tiene variantes, eliminar las existentes
+              await prisma.productVariant.deleteMany({
+                where: { productId: product.id },
+              });
+            }
+
+            // Actualizar bebidas del producto
+            if (product.drinks && product.drinks.length > 0) {
+              // Eliminar bebidas existentes y crear nuevas
+              await prisma.productDrink.deleteMany({
+                where: { productId: product.id },
+              });
+              await prisma.productDrink.createMany({
+                data: product.drinks.map((d: any) => ({
+                  productId: product.id,
+                  name: d.name,
+                  price: d.price,
+                  costPrice: d.costPrice || 0,
+                })),
+              });
+            } else {
+              // Si no tiene bebidas, eliminar las existentes
+              await prisma.productDrink.deleteMany({
+                where: { productId: product.id },
+              });
+            }
           } else {
-            // Si no tiene bebidas, eliminar las existentes
-            await prisma.productDrink.deleteMany({
-              where: { productId: product.id },
+            // El producto tiene ID pero no existe en DB (ID temporal del frontend)
+            // Crear nuevo producto
+            const newProduct = await prisma.product.create({
+              data: {
+                vendorId: id,
+                name: product.name,
+                description: product.description,
+                price: product.price,
+                costPrice: product.costPrice,
+                offerPrice: product.offerPrice,
+                isOffer: product.isOffer,
+                isFeatured: product.isFeatured,
+                imageUrl: product.imageUrl,
+                stock: product.stock,
+                packagingFee: product.options?.packagingFee,
+                cutleryPrice: product.options?.cutleryPrice,
+                cutleryCostPrice: product.options?.cutleryCostPrice,
+                vendorCategoryId: product.vendorCategoryId || null,
+                hasVariants: product.hasVariants || false,
+              },
             });
+
+            // Crear variantes si existen
+            if (product.hasVariants && product.variants && product.variants.length > 0) {
+              await prisma.productVariant.createMany({
+                data: product.variants.map((v: any, index: number) => ({
+                  productId: newProduct.id,
+                  name: v.name,
+                  price: v.price,
+                  costPrice: v.costPrice || 0,
+                  stock: v.stock,
+                  isDefault: v.isDefault || index === 0,
+                  sortOrder: v.sortOrder || index,
+                })),
+              });
+            }
+
+            // Crear bebidas si existen
+            if (product.drinks && product.drinks.length > 0) {
+              await prisma.productDrink.createMany({
+                data: product.drinks.map((d: any) => ({
+                  productId: newProduct.id,
+                  name: d.name,
+                  price: d.price,
+                  costPrice: d.costPrice || 0,
+                })),
+              });
+            }
           }
         } else {
-          // Crear nuevo producto
+          // Crear nuevo producto (sin ID)
           const newProduct = await prisma.product.create({
             data: {
               vendorId: id,
@@ -426,6 +577,58 @@ export async function saveVendor(data: any) {
               })),
             });
           }
+        }
+      }
+    }
+
+    // Actualizar categorías de productos del vendor
+    if (productCategories) {
+      // Obtener IDs de categorías que vienen del frontend (solo las reales de la DB)
+      const categoryIdsFromFrontend = productCategories
+        .filter((c: any) => c.id && !c.id.startsWith('cat') && c.id.startsWith('cm'))
+        .map((c: any) => c.id);
+
+      // Obtener categorías actuales del vendor en la DB
+      const existingCategoriesInDb = await prisma.vendorProductCategory.findMany({
+        where: { vendorId: id },
+        select: { id: true },
+      });
+
+      // Encontrar categorías a eliminar
+      const categoryIdsToDelete = existingCategoriesInDb
+        .filter((dbCat) => !categoryIdsFromFrontend.includes(dbCat.id))
+        .map((c) => c.id);
+
+      // Eliminar categorías que ya no existen en el frontend
+      if (categoryIdsToDelete.length > 0) {
+        await prisma.vendorProductCategory.deleteMany({
+          where: { id: { in: categoryIdsToDelete } },
+        });
+      }
+
+      // Crear o actualizar categorías
+      for (const cat of productCategories) {
+        const isTemporaryCatId = cat.id && (cat.id.startsWith('cat') || !cat.id.startsWith('cm'));
+
+        if (cat.id && !isTemporaryCatId) {
+          // Verificar si existe
+          const existingCat = await prisma.vendorProductCategory.findUnique({ where: { id: cat.id } });
+          if (existingCat) {
+            await prisma.vendorProductCategory.update({
+              where: { id: cat.id },
+              data: { name: cat.name },
+            });
+          } else {
+            // No existe, crear nueva
+            await prisma.vendorProductCategory.create({
+              data: { vendorId: id, name: cat.name },
+            });
+          }
+        } else {
+          // ID temporal o sin ID, crear nueva
+          await prisma.vendorProductCategory.create({
+            data: { vendorId: id, name: cat.name },
+          });
         }
       }
     }
@@ -486,6 +689,18 @@ export async function saveVendor(data: any) {
             })),
           });
         }
+      }
+    }
+
+    // Crear categorías de productos para el nuevo vendor
+    if (productCategories && productCategories.length > 0) {
+      for (const cat of productCategories) {
+        await prisma.vendorProductCategory.create({
+          data: {
+            vendorId: newVendor.id,
+            name: cat.name,
+          },
+        });
       }
     }
 
@@ -555,12 +770,18 @@ export async function getOrders(filters?: {
       price: decimalToNumber(i.price),
       costPrice: decimalToNumber(i.costPrice),
       payoutStatus: i.payoutStatus,
-      options: i.hasCutlery || i.drinkName ? {
-        cutlery: i.hasCutlery,
+      options: {
+        cutlery: i.hasCutlery || false,
         drink: i.drinkName || undefined,
         cutleryPrice: i.cutleryPrice ? decimalToNumber(i.cutleryPrice) : undefined,
+        cutleryCostPrice: i.cutleryCostPrice ? decimalToNumber(i.cutleryCostPrice) : undefined,
         drinkPrice: i.drinkPrice ? decimalToNumber(i.drinkPrice) : undefined,
-      } : undefined,
+        drinkCostPrice: i.drinkCostPrice ? decimalToNumber(i.drinkCostPrice) : undefined,
+        variant: i.variantName ? {
+          name: i.variantName,
+          price: i.variantPrice ? decimalToNumber(i.variantPrice) : undefined,
+        } : undefined,
+      },
     })),
   }));
 }
@@ -621,10 +842,14 @@ export async function saveOrder(data: any) {
               price: i.price,
               costPrice: i.costPrice,
               payoutStatus: i.payoutStatus,
-              hasCutlery: i.options?.cutlery,
-              cutleryPrice: i.options?.cutleryPrice,
-              drinkName: i.options?.drink,
-              drinkPrice: i.options?.drinkPrice,
+              hasCutlery: i.options?.cutlery || false,
+              cutleryPrice: i.options?.cutleryPrice || null,
+              cutleryCostPrice: i.options?.cutleryCostPrice || null,
+              drinkName: i.options?.drink || null,
+              drinkPrice: i.options?.drinkPrice || null,
+              drinkCostPrice: i.options?.drinkCostPrice || null,
+              variantName: i.options?.variant?.name || null,
+              variantPrice: i.options?.variant?.price || null,
             })),
           } : undefined,
         },
@@ -646,15 +871,84 @@ export async function saveOrder(data: any) {
             price: i.price,
             costPrice: i.costPrice,
             payoutStatus: i.payoutStatus,
-            hasCutlery: i.options?.cutlery,
-            cutleryPrice: i.options?.cutleryPrice,
-            drinkName: i.options?.drink,
-            drinkPrice: i.options?.drinkPrice,
+            hasCutlery: i.options?.cutlery || false,
+            cutleryPrice: i.options?.cutleryPrice || null,
+            cutleryCostPrice: i.options?.cutleryCostPrice || null,
+            drinkName: i.options?.drink || null,
+            drinkPrice: i.options?.drinkPrice || null,
+            drinkCostPrice: i.options?.drinkCostPrice || null,
+            variantName: i.options?.variant?.name || null,
+            variantPrice: i.options?.variant?.price || null,
           })),
         } : undefined,
       },
     });
   }
+}
+
+export async function getOrderById(id: string) {
+  const order = await prisma.order.findUnique({
+    where: { id },
+    include: {
+      items: {
+        include: {
+          vendor: true,
+          product: true,
+        },
+      },
+      user: true,
+      driver: true,
+    },
+  });
+
+  if (!order) return null;
+
+  return {
+    id: order.id,
+    date: order.createdAt.toISOString(),
+    userId: order.userId || undefined,
+    customerName: order.customerName,
+    customerPhone: order.customerPhone || "",
+    customerAddress: order.customerAddress,
+    customerCoordinates: order.customerLat && order.customerLng
+      ? { lat: decimalToNumber(order.customerLat), lng: decimalToNumber(order.customerLng) }
+      : undefined,
+    status: order.status,
+    total: decimalToNumber(order.total),
+    shippingFee: decimalToNumber(order.shippingFee),
+    paymentMethod: order.paymentMethod || "",
+    paymentProofUrl: order.paymentProofUrl || undefined,
+    driverId: order.driverId || undefined,
+    driverPayoutStatus: order.driverPayoutStatus,
+    verificationCode: order.verificationCode || "",
+    items: order.items.map((i) => ({
+      productId: i.productId || "",
+      productName: i.productName,
+      vendor: i.vendorName,
+      quantity: i.quantity,
+      price: decimalToNumber(i.price),
+      costPrice: decimalToNumber(i.costPrice),
+      payoutStatus: i.payoutStatus,
+      options: {
+        cutlery: i.hasCutlery || false,
+        drink: i.drinkName || undefined,
+        cutleryPrice: i.cutleryPrice ? decimalToNumber(i.cutleryPrice) : undefined,
+        cutleryCostPrice: i.cutleryCostPrice ? decimalToNumber(i.cutleryCostPrice) : undefined,
+        drinkPrice: i.drinkPrice ? decimalToNumber(i.drinkPrice) : undefined,
+        drinkCostPrice: i.drinkCostPrice ? decimalToNumber(i.drinkCostPrice) : undefined,
+        variant: i.variantName ? {
+          name: i.variantName,
+          price: i.variantPrice ? decimalToNumber(i.variantPrice) : undefined,
+        } : undefined,
+      },
+    })),
+  };
+}
+
+export async function deleteOrder(id: string) {
+  // Primero eliminar los items de la orden
+  await prisma.orderItem.deleteMany({ where: { orderId: id } });
+  return prisma.order.delete({ where: { id } });
 }
 
 // ============================================
@@ -673,6 +967,7 @@ export async function getDrivers() {
 
   return drivers.map((d) => ({
     id: d.id,
+    userId: d.userId || undefined,
     name: d.name,
     email: d.email,
     dni: d.dni || "",
@@ -733,16 +1028,73 @@ export async function saveDriver(data: any) {
     userId: driverData.userId,
   };
 
-  if (id) {
+  // Verificar si el driver existe en la BD (sin importar el formato del ID)
+  const existing = id ? await prisma.driver.findUnique({ where: { id } }) : null;
+
+  if (existing) {
     return prisma.driver.update({
       where: { id },
       data: driverPayload,
     });
-  } else {
-    return prisma.driver.create({
-      data: driverPayload,
-    });
   }
+
+  // Sin ID o no existe: crear nuevo driver
+  return prisma.driver.create({
+    data: driverPayload,
+  });
+}
+
+export async function getDriverById(id: string) {
+  const driver = await prisma.driver.findUnique({
+    where: { id },
+    include: {
+      debtTransactions: {
+        orderBy: { createdAt: "desc" },
+      },
+    },
+  });
+
+  if (!driver) return null;
+
+  return {
+    id: driver.id,
+    userId: driver.userId || undefined,
+    name: driver.name,
+    email: driver.email,
+    dni: driver.dni || "",
+    phone: driver.phone || "",
+    vehicle: driver.vehicle,
+    status: driver.status,
+    commissionRate: decimalToNumber(driver.commissionRate),
+    debt: decimalToNumber(driver.debt),
+    address: driver.address || undefined,
+    city: driver.city || undefined,
+    sector: driver.sector || undefined,
+    coordinates: driver.lat && driver.lng
+      ? { lat: decimalToNumber(driver.lat), lng: decimalToNumber(driver.lng) }
+      : undefined,
+    documentImageUrl: driver.documentImageUrl || undefined,
+    profileImageUrl: driver.profileImageUrl || undefined,
+    paymentMethod: driver.paymentMethod,
+    bankAccount: driver.bankAccount || undefined,
+    qrImageUrl: driver.qrImageUrl || undefined,
+    qrPaymentName: driver.qrPaymentName || undefined,
+    rating: driver.rating ? decimalToNumber(driver.rating) : undefined,
+    deliveries: driver.deliveries,
+    debtTransactions: driver.debtTransactions.map((t) => ({
+      id: t.id,
+      date: t.createdAt.toISOString(),
+      type: t.type,
+      amount: decimalToNumber(t.amount),
+      description: t.description || "",
+    })),
+  };
+}
+
+export async function deleteDriver(id: string) {
+  // Primero eliminar transacciones de deuda
+  await prisma.driverDebtTransaction.deleteMany({ where: { driverId: id } });
+  return prisma.driver.delete({ where: { id } });
 }
 
 // ============================================
@@ -765,16 +1117,24 @@ export async function getCategories() {
 export async function saveCategory(data: any) {
   const { id, ...categoryData } = data;
 
-  if (id) {
+  // Verificar si la categoría existe en la BD (sin importar el formato del ID)
+  const existing = id ? await prisma.category.findUnique({ where: { id } }) : null;
+
+  if (existing) {
     return prisma.category.update({
       where: { id },
       data: categoryData,
     });
-  } else {
-    return prisma.category.create({
-      data: categoryData,
-    });
   }
+
+  // Sin ID o no existe: crear nueva categoría
+  return prisma.category.create({
+    data: categoryData,
+  });
+}
+
+export async function deleteCategory(id: string) {
+  return prisma.category.delete({ where: { id } });
 }
 
 // ============================================
@@ -802,6 +1162,73 @@ export async function getCities() {
   }));
 }
 
+export async function saveCity(data: any) {
+  const { id, sectors, ...cityData } = data;
+
+  const cityPayload = {
+    name: cityData.name,
+    lat: cityData.coordinates?.lat,
+    lng: cityData.coordinates?.lng,
+  };
+
+  // Verificar si es un ID temporal o real de la DB
+  const isTemporaryId = id && (id.startsWith('city') || !id.startsWith('cm'));
+
+  if (id && !isTemporaryId) {
+    // Verificar si existe antes de actualizar
+    const existing = await prisma.city.findUnique({ where: { id } });
+
+    if (existing) {
+      // Actualizar ciudad
+      const city = await prisma.city.update({
+        where: { id },
+        data: cityPayload,
+      });
+
+      // Actualizar sectores
+      if (sectors) {
+        // Eliminar sectores existentes y recrear
+        await prisma.citySector.deleteMany({ where: { cityId: id } });
+        if (sectors.length > 0) {
+          await prisma.citySector.createMany({
+            data: sectors.map((s: any) => ({
+              cityId: id,
+              name: s.name,
+              fee: s.fee || 0,
+            })),
+          });
+        }
+      }
+
+      return city;
+    }
+  }
+
+  // Crear nueva ciudad
+  const newCity = await prisma.city.create({
+    data: cityPayload,
+  });
+
+  // Crear sectores si existen
+  if (sectors && sectors.length > 0) {
+    await prisma.citySector.createMany({
+      data: sectors.map((s: any) => ({
+        cityId: newCity.id,
+        name: s.name,
+        fee: s.fee || 0,
+      })),
+    });
+  }
+
+  return newCity;
+}
+
+export async function deleteCity(id: string) {
+  // Primero eliminar sectores
+  await prisma.citySector.deleteMany({ where: { cityId: id } });
+  return prisma.city.delete({ where: { id } });
+}
+
 // ============================================
 // APP SETTINGS
 // ============================================
@@ -819,7 +1246,9 @@ export async function getAppSettings() {
   const paymentMethods = (settings as any).paymentMethods || {};
   const promotionalBanners = (settings as any).promotionalBanners || [];
   const announcementBanners = (settings as any).announcementBanners || [];
-  const shippingSettings = settings.shippingSettings || {};
+
+  // Parsear shippingSettings - usar mismo patrón que paymentMethods (nunca devolver null)
+  const shippingSettings = (settings as any).shippingSettings || {};
 
   return {
     appName: settings.appName,
@@ -930,6 +1359,70 @@ export async function getAnnouncementBanners() {
   }));
 }
 
+export async function savePromotionalBanner(data: any) {
+  const { id, ...bannerData } = data;
+
+  const bannerPayload = {
+    imageUrl: bannerData.imageUrl,
+    title: bannerData.title,
+    description: bannerData.description,
+    link: bannerData.link,
+    imageHint: bannerData.imageHint,
+    locations: bannerData.locations || [],
+    isActive: bannerData.isActive !== false,
+  };
+
+  const isTemporaryId = id && (id.startsWith('banner') || !id.startsWith('cm'));
+
+  if (id && !isTemporaryId) {
+    const existing = await prisma.promotionalBanner.findUnique({ where: { id } });
+    if (existing) {
+      return prisma.promotionalBanner.update({
+        where: { id },
+        data: bannerPayload,
+      });
+    }
+  }
+
+  return prisma.promotionalBanner.create({ data: bannerPayload });
+}
+
+export async function deletePromotionalBanner(id: string) {
+  return prisma.promotionalBanner.delete({ where: { id } });
+}
+
+export async function saveAnnouncementBanner(data: any) {
+  const { id, ...bannerData } = data;
+
+  const bannerPayload = {
+    imageUrl: bannerData.imageUrl,
+    title: bannerData.title,
+    description: bannerData.description,
+    link: bannerData.link,
+    imageHint: bannerData.imageHint,
+    locations: bannerData.locations || [],
+    isActive: bannerData.isActive !== false,
+  };
+
+  const isTemporaryId = id && (id.startsWith('banner') || !id.startsWith('cm'));
+
+  if (id && !isTemporaryId) {
+    const existing = await prisma.announcementBanner.findUnique({ where: { id } });
+    if (existing) {
+      return prisma.announcementBanner.update({
+        where: { id },
+        data: bannerPayload,
+      });
+    }
+  }
+
+  return prisma.announcementBanner.create({ data: bannerPayload });
+}
+
+export async function deleteAnnouncementBanner(id: string) {
+  return prisma.announcementBanner.delete({ where: { id } });
+}
+
 // ============================================
 // BANK ACCOUNTS Y QR
 // ============================================
@@ -938,8 +1431,64 @@ export async function getBankAccounts() {
   return prisma.bankAccount.findMany();
 }
 
+export async function saveBankAccount(data: any) {
+  const { id, ...accountData } = data;
+
+  const accountPayload = {
+    bankName: accountData.bankName,
+    accountNumber: accountData.accountNumber,
+    accountHolder: accountData.accountHolder,
+    accountType: accountData.accountType,
+  };
+
+  const isTemporaryId = id && (id.startsWith('bank') || !id.startsWith('cm'));
+
+  if (id && !isTemporaryId) {
+    const existing = await prisma.bankAccount.findUnique({ where: { id } });
+    if (existing) {
+      return prisma.bankAccount.update({
+        where: { id },
+        data: accountPayload,
+      });
+    }
+  }
+
+  return prisma.bankAccount.create({ data: accountPayload });
+}
+
+export async function deleteBankAccount(id: string) {
+  return prisma.bankAccount.delete({ where: { id } });
+}
+
 export async function getQrPayments() {
   return prisma.qrPayment.findMany();
+}
+
+export async function saveQrPayment(data: any) {
+  const { id, ...qrData } = data;
+
+  const qrPayload = {
+    name: qrData.name,
+    imageUrl: qrData.imageUrl,
+  };
+
+  const isTemporaryId = id && (id.startsWith('qr') || !id.startsWith('cm'));
+
+  if (id && !isTemporaryId) {
+    const existing = await prisma.qrPayment.findUnique({ where: { id } });
+    if (existing) {
+      return prisma.qrPayment.update({
+        where: { id },
+        data: qrPayload,
+      });
+    }
+  }
+
+  return prisma.qrPayment.create({ data: qrPayload });
+}
+
+export async function deleteQrPayment(id: string) {
+  return prisma.qrPayment.delete({ where: { id } });
 }
 
 // ============================================
@@ -980,6 +1529,57 @@ export async function getFavors(userId?: string) {
   }));
 }
 
+export async function saveFavor(data: any) {
+  const { id, ...favorData } = data;
+
+  const favorPayload = {
+    userId: favorData.userId,
+    userName: favorData.userName,
+    description: favorData.description,
+    pickupAddress: favorData.pickupAddress,
+    deliveryAddress: favorData.deliveryAddress,
+    pickupLat: favorData.pickupLocation?.lat,
+    pickupLng: favorData.pickupLocation?.lng,
+    deliveryLat: favorData.deliveryLocation?.lat,
+    deliveryLng: favorData.deliveryLocation?.lng,
+    estimatedProductCost: favorData.estimatedProductCost,
+    photoUrl: favorData.photoDataUri,
+    quoteData: favorData.quote,
+    status: favorData.status || "Pendiente",
+    driverId: favorData.driverId,
+  };
+
+  // Verificar si es un ID temporal o real de la DB
+  const isTemporaryId = id && (id.startsWith('favor') || id.startsWith('FAV') || !id.startsWith('cm'));
+
+  if (id && !isTemporaryId) {
+    // Verificar si existe antes de actualizar
+    const existing = await prisma.favor.findUnique({ where: { id } });
+
+    if (existing) {
+      return prisma.favor.update({
+        where: { id },
+        data: favorPayload,
+      });
+    }
+  }
+
+  // Sin ID, ID temporal o no existe: crear nuevo favor
+  const favorId = `FAV-${Date.now()}`;
+  return prisma.favor.create({
+    data: {
+      id: favorId,
+      ...favorPayload,
+    },
+  });
+}
+
+export async function deleteFavor(id: string) {
+  return prisma.favor.delete({
+    where: { id },
+  });
+}
+
 // ============================================
 // ADMINS
 // ============================================
@@ -998,6 +1598,44 @@ export async function getAdmins() {
   }));
 }
 
+export async function saveAdmin(data: any) {
+  const { id, ...adminData } = data;
+
+  const adminPayload = {
+    name: adminData.name,
+    email: adminData.email,
+    phone: adminData.phone,
+    permissions: adminData.permissions || [],
+    userId: adminData.userId,
+  };
+
+  // Verificar si es un ID temporal o real de la DB
+  const isTemporaryId = id && (id.startsWith('admin') || id.startsWith('a') || !id.startsWith('cm'));
+
+  if (id && !isTemporaryId) {
+    // Verificar si existe antes de actualizar
+    const existing = await prisma.admin.findUnique({ where: { id } });
+
+    if (existing) {
+      return prisma.admin.update({
+        where: { id },
+        data: adminPayload,
+      });
+    }
+  }
+
+  // Sin ID, ID temporal o no existe: crear nuevo admin
+  return prisma.admin.create({
+    data: adminPayload,
+  });
+}
+
+export async function deleteAdmin(id: string) {
+  return prisma.admin.delete({
+    where: { id },
+  });
+}
+
 // ============================================
 // DELIVERY ZONES
 // ============================================
@@ -1014,6 +1652,39 @@ export async function getDeliveryZones() {
     path: (z.path as unknown) as Coordinate[],
     shippingFee: decimalToNumber(z.shippingFee),
   }));
+}
+
+export async function saveDeliveryZone(data: any) {
+  const { id, ...zoneData } = data;
+
+  const zonePayload = {
+    name: zoneData.name,
+    cityId: zoneData.cityId,
+    path: zoneData.path,
+    shippingFee: zoneData.shippingFee,
+  };
+
+  // Verificar si es un ID temporal o real de la DB
+  const isTemporaryId = id && (id.startsWith('zone') || !id.startsWith('cm'));
+
+  if (id && !isTemporaryId) {
+    const existing = await prisma.deliveryZone.findUnique({ where: { id } });
+
+    if (existing) {
+      return prisma.deliveryZone.update({
+        where: { id },
+        data: zonePayload,
+      });
+    }
+  }
+
+  return prisma.deliveryZone.create({
+    data: zonePayload,
+  });
+}
+
+export async function deleteDeliveryZone(id: string) {
+  return prisma.deliveryZone.delete({ where: { id } });
 }
 
 // ============================================
@@ -1038,4 +1709,190 @@ export async function saveCart(userId: string, items: any[]) {
     update: { items },
     create: { userId, items },
   });
+}
+
+export async function deleteCart(userId: string) {
+  return prisma.cart.delete({ where: { userId } });
+}
+
+// ============================================
+// REWARDS (RECOMPENSAS)
+// ============================================
+
+export async function getRewards() {
+  const rewards = await prisma.reward.findMany({
+    orderBy: { createdAt: "desc" },
+  });
+
+  return rewards.map((r) => ({
+    id: r.id,
+    name: r.name,
+    description: r.description || "",
+    imageUrl: r.imageUrl || "",
+    coinsCost: r.coinsCost,
+    stock: r.stock,
+    isActive: r.isActive,
+  }));
+}
+
+export async function getRewardById(id: string) {
+  const reward = await prisma.reward.findUnique({ where: { id } });
+
+  if (!reward) return null;
+
+  return {
+    id: reward.id,
+    name: reward.name,
+    description: reward.description || "",
+    imageUrl: reward.imageUrl || "",
+    coinsCost: reward.coinsCost,
+    stock: reward.stock,
+    isActive: reward.isActive,
+  };
+}
+
+export async function saveReward(data: any) {
+  const { id, ...rewardData } = data;
+
+  const rewardPayload = {
+    name: rewardData.name,
+    description: rewardData.description,
+    imageUrl: rewardData.imageUrl,
+    coinsCost: rewardData.coinsCost,
+    stock: rewardData.stock,
+    isActive: rewardData.isActive !== false,
+  };
+
+  const isTemporaryId = id && (id.startsWith('reward') || !id.startsWith('cm'));
+
+  if (id && !isTemporaryId) {
+    const existing = await prisma.reward.findUnique({ where: { id } });
+    if (existing) {
+      return prisma.reward.update({
+        where: { id },
+        data: rewardPayload,
+      });
+    }
+  }
+
+  return prisma.reward.create({ data: rewardPayload });
+}
+
+export async function deleteReward(id: string) {
+  return prisma.reward.delete({ where: { id } });
+}
+
+// ============================================
+// MESSAGES (MENSAJES DE CHAT)
+// ============================================
+
+export async function getMessages(orderId?: string) {
+  const where = orderId ? { orderId } : {};
+
+  const messages = await prisma.message.findMany({
+    where,
+    orderBy: { createdAt: "asc" },
+  });
+
+  return messages.map((m) => ({
+    id: m.id,
+    orderId: m.orderId,
+    senderId: m.senderId,
+    senderName: m.senderName,
+    senderRole: m.senderRole,
+    content: m.content,
+    timestamp: m.createdAt.toISOString(),
+    isRead: m.isRead,
+  }));
+}
+
+export async function saveMessage(data: any) {
+  const { id, ...messageData } = data;
+
+  const messagePayload = {
+    orderId: messageData.orderId,
+    senderId: messageData.senderId,
+    senderName: messageData.senderName,
+    senderRole: messageData.senderRole,
+    content: messageData.content,
+    isRead: messageData.isRead || false,
+  };
+
+  const isTemporaryId = id && (id.startsWith('msg') || !id.startsWith('cm'));
+
+  if (id && !isTemporaryId) {
+    const existing = await prisma.message.findUnique({ where: { id } });
+    if (existing) {
+      return prisma.message.update({
+        where: { id },
+        data: messagePayload,
+      });
+    }
+  }
+
+  return prisma.message.create({ data: messagePayload });
+}
+
+export async function deleteMessage(id: string) {
+  return prisma.message.delete({ where: { id } });
+}
+
+export async function markMessagesAsRead(orderId: string, recipientRole: string) {
+  return prisma.message.updateMany({
+    where: {
+      orderId,
+      senderRole: { not: recipientRole },
+      isRead: false,
+    },
+    data: { isRead: true },
+  });
+}
+
+// ============================================
+// DRIVER DEBT TRANSACTIONS
+// ============================================
+
+export async function getDriverDebtTransactions(driverId: string) {
+  const transactions = await prisma.driverDebtTransaction.findMany({
+    where: { driverId },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return transactions.map((t) => ({
+    id: t.id,
+    driverId: t.driverId,
+    date: t.createdAt.toISOString(),
+    type: t.type,
+    amount: decimalToNumber(t.amount),
+    description: t.description || "",
+  }));
+}
+
+export async function saveDriverDebtTransaction(data: any) {
+  const { id, ...transactionData } = data;
+
+  const transactionPayload = {
+    driverId: transactionData.driverId,
+    type: transactionData.type,
+    amount: transactionData.amount,
+    description: transactionData.description,
+  };
+
+  const isTemporaryId = id && (id.startsWith('debt') || !id.startsWith('cm'));
+
+  if (id && !isTemporaryId) {
+    const existing = await prisma.driverDebtTransaction.findUnique({ where: { id } });
+    if (existing) {
+      return prisma.driverDebtTransaction.update({
+        where: { id },
+        data: transactionPayload,
+      });
+    }
+  }
+
+  return prisma.driverDebtTransaction.create({ data: transactionPayload });
+}
+
+export async function deleteDriverDebtTransaction(id: string) {
+  return prisma.driverDebtTransaction.delete({ where: { id } });
 }
