@@ -7,7 +7,7 @@ import { CartProvider } from '@/hooks/use-cart';
 import { LayoutWrapper } from '@/components/layout/LayoutWrapper';
 import { AppDataProvider } from '@/hooks/use-app-data';
 import { HydrationFix } from './hydration-fix';
-// GoogleMapsProvider movido a páginas que lo necesitan (checkout, driver/map, ask-a-favor)
+import { GoogleMapsProvider } from '@/providers/GoogleMapsProvider';
 import { SessionProvider } from '@/providers/SessionProvider';
 
 export const metadata: Metadata = {
@@ -133,14 +133,16 @@ export default function RootLayout({
       >
         <HydrationFix />
         <SessionProvider>
-          <AppDataProvider>
-            <CartProvider>
-              <LayoutWrapper>
-                {children}
-              </LayoutWrapper>
-              <Toaster />
-            </CartProvider>
-          </AppDataProvider>
+          <GoogleMapsProvider>
+            <AppDataProvider>
+              <CartProvider>
+                <LayoutWrapper>
+                  {children}
+                </LayoutWrapper>
+                <Toaster />
+              </CartProvider>
+            </AppDataProvider>
+          </GoogleMapsProvider>
         </SessionProvider>
       </body>
     </html>
