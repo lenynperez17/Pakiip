@@ -15,6 +15,10 @@ export async function GET(request: NextRequest) {
     const userRole = session?.user?.role;
 
     // Cargar todos los datos en paralelo
+    // Usar versión lite de vendors para carga inicial más rápida
+    // Los productos se cargan bajo demanda al entrar a cada tienda
+    const useFullVendors = userRole === "admin" || userRole === "vendor";
+
     const [
       users,
       vendors,
@@ -32,7 +36,7 @@ export async function GET(request: NextRequest) {
       deliveryZones,
     ] = await Promise.all([
       db.getUsers(),
-      db.getVendors(),
+      useFullVendors ? db.getVendors() : db.getVendorsLite(),
       db.getOrders(userRole === "admin" ? undefined : { userId }),
       db.getDrivers(),
       db.getCategories(),

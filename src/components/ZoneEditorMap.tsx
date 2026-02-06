@@ -8,7 +8,7 @@ import { Skeleton } from './ui/skeleton';
 import { Button } from './ui/button';
 import { Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useGoogleMaps } from '@/providers/GoogleMapsProvider';
+import { GoogleMapsProvider, useGoogleMaps } from '@/providers/GoogleMapsProvider';
 
 const containerStyle = {
   width: '100%',
@@ -32,7 +32,7 @@ interface ZoneEditorMapProps {
     onZoneEdited: (zoneId: string, newPath: Coordinate[]) => void;
 }
 
-export function ZoneEditorMap({ center, zones, onZoneDrawn, onZoneEdited }: ZoneEditorMapProps) {
+function ZoneEditorMapInner({ center, zones, onZoneDrawn, onZoneEdited }: ZoneEditorMapProps) {
   const { isLoaded, loadError } = useGoogleMaps();
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [isMapReady, setIsMapReady] = useState(false);
@@ -155,5 +155,14 @@ export function ZoneEditorMap({ center, zones, onZoneDrawn, onZoneEdited }: Zone
       ))}
 
     </GoogleMap>
+  );
+}
+
+// Componente exportado que incluye su propio GoogleMapsProvider
+export function ZoneEditorMap(props: ZoneEditorMapProps) {
+  return (
+    <GoogleMapsProvider>
+      <ZoneEditorMapInner {...props} />
+    </GoogleMapsProvider>
   );
 }

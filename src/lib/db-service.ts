@@ -161,6 +161,42 @@ export async function deleteUser(id: string) {
 // VENDORS (TIENDAS)
 // ============================================
 
+// Versión ligera para carga inicial (sin productos)
+export async function getVendorsLite() {
+  const vendors = await prisma.vendor.findMany({
+    include: {
+      category: true,
+      city: true,
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  return vendors.map((v) => ({
+    id: v.id,
+    name: v.name,
+    email: v.email,
+    phone: v.phone || "",
+    dni: v.dni || "",
+    description: v.description || "",
+    category: v.category?.name || "",
+    imageUrl: v.logoUrl || "",
+    bannerUrl: v.bannerUrl || undefined,
+    address: v.address || "",
+    location: v.city?.name || "",
+    coordinates: v.lat && v.lng ? { lat: decimalToNumber(v.lat), lng: decimalToNumber(v.lng) } : { lat: 0, lng: 0 },
+    isFeatured: v.isFeatured,
+    commissionRate: decimalToNumber(v.commissionRate),
+    additionalFee: decimalToNumber(v.additionalFee),
+    status: v.status,
+    paymentMethod: v.paymentMethod,
+    ownerId: v.ownerId || undefined,
+    isOpen: v.isOpen,
+    products: [], // Se cargan bajo demanda
+    productCategories: [],
+  }));
+}
+
+// Versión completa con todos los productos (para admin o detalle de tienda)
 export async function getVendors() {
   const vendors = await prisma.vendor.findMany({
     include: {

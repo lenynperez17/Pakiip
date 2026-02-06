@@ -8,7 +8,7 @@ import { Skeleton } from './ui/skeleton';
 import { Button } from './ui/button';
 import { Crosshair } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useGoogleMaps } from '@/providers/GoogleMapsProvider';
+import { GoogleMapsProvider, useGoogleMaps } from '@/providers/GoogleMapsProvider';
 import { reverseGeocode } from '@/lib/google-geocoding';
 
 interface LocationPickerMapProps {
@@ -32,7 +32,8 @@ const mapOptions: google.maps.MapOptions = {
     zoomControl: true,
 };
 
-export function LocationPickerMap({ onLocationSelect, initialCenter, initialMarker }: LocationPickerMapProps) {
+// Componente interno que usa el contexto de Google Maps
+function LocationPickerMapInner({ onLocationSelect, initialCenter, initialMarker }: LocationPickerMapProps) {
   const { isLoaded, loadError } = useGoogleMaps();
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [markerPosition, setMarkerPosition] = useState<Coordinate | null>(initialMarker || null);
@@ -195,5 +196,14 @@ export function LocationPickerMap({ onLocationSelect, initialCenter, initialMark
             </Button>
         </div>
     </div>
+  );
+}
+
+// Componente exportado que incluye su propio GoogleMapsProvider
+export function LocationPickerMap(props: LocationPickerMapProps) {
+  return (
+    <GoogleMapsProvider>
+      <LocationPickerMapInner {...props} />
+    </GoogleMapsProvider>
   );
 }

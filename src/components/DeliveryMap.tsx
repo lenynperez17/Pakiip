@@ -5,7 +5,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { GoogleMap, MarkerF, InfoWindow } from '@react-google-maps/api';
 import type { Coordinate } from '@/lib/placeholder-data';
 import { Skeleton } from './ui/skeleton';
-import { useGoogleMaps } from '@/providers/GoogleMapsProvider';
+import { GoogleMapsProvider, useGoogleMaps } from '@/providers/GoogleMapsProvider';
 
 export interface DeliveryPoint {
     type: 'store' | 'customer';
@@ -36,7 +36,7 @@ const mapOptions = {
     ]
 };
 
-export function DeliveryMap({ points }: DeliveryMapProps) {
+function DeliveryMapInner({ points }: DeliveryMapProps) {
   const { isLoaded, loadError } = useGoogleMaps();
   const [activeMarker, setActiveMarker] = useState<string | null>(null);
   const [map, setMap] = useState<google.maps.Map | null>(null);
@@ -112,5 +112,14 @@ export function DeliveryMap({ points }: DeliveryMapProps) {
             </MarkerF>
         ))}
     </GoogleMap>
+  );
+}
+
+// Componente exportado que incluye su propio GoogleMapsProvider
+export function DeliveryMap(props: DeliveryMapProps) {
+  return (
+    <GoogleMapsProvider>
+      <DeliveryMapInner {...props} />
+    </GoogleMapsProvider>
   );
 }
