@@ -631,6 +631,11 @@ model AppSettings {
   customDomain            String?  @map("custom_domain")
   shippingSettings        Json     @default("{}") @map("shipping_settings")
   cashOnDeliveryEnabled   Boolean  @default(true) @map("cash_on_delivery_enabled")
+  // Campos adicionales para pagos y banners
+  paymentMethods          Json     @default("{}") @map("payment_methods")
+  promotionalBanners      Json     @default("[]") @map("promotional_banners")
+  announcementBanners     Json     @default("[]") @map("announcement_banners")
+  googleClientId          String?  @map("google_client_id")
   updatedAt               DateTime @updatedAt @map("updated_at")
 
   @@map("app_settings")

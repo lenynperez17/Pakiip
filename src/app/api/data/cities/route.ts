@@ -36,32 +36,58 @@ export async function POST(request: NextRequest) {
     const { id, sectors, ...cityData } = data;
 
     let city;
-    if (id) {
-      city = await prisma.city.update({
-        where: { id },
-        data: {
-          name: cityData.name,
-          lat: cityData.coordinates?.lat,
-          lng: cityData.coordinates?.lng,
-        },
-      });
 
-      // Actualizar sectores
-      if (sectors) {
-        // Eliminar sectores existentes
-        await prisma.citySector.deleteMany({ where: { cityId: id } });
-        // Crear nuevos
-        for (const sector of sectors) {
-          await prisma.citySector.create({
-            data: {
-              cityId: id,
-              name: sector.name,
-              fee: sector.fee,
-            },
-          });
+    // Verificar si es un ID temporal (generado en el frontend) o un ID real de la DB
+    const isTemporaryId = id && (id.startsWith('city') || !id.startsWith('cm'));
+
+    if (id && !isTemporaryId) {
+      // Verificar si el registro existe antes de actualizar
+      const existingCity = await prisma.city.findUnique({ where: { id } });
+
+      if (existingCity) {
+        // Actualizar ciudad existente
+        city = await prisma.city.update({
+          where: { id },
+          data: {
+            name: cityData.name,
+            lat: cityData.coordinates?.lat,
+            lng: cityData.coordinates?.lng,
+          },
+        });
+
+        // Actualizar sectores
+        if (sectors) {
+          // Eliminar sectores existentes
+          await prisma.citySector.deleteMany({ where: { cityId: id } });
+          // Crear nuevos
+          for (const sector of sectors) {
+            await prisma.citySector.create({
+              data: {
+                cityId: id,
+                name: sector.name,
+                fee: sector.fee,
+              },
+            });
+          }
         }
+      } else {
+        // ID no existe, crear nueva ciudad
+        city = await prisma.city.create({
+          data: {
+            name: cityData.name,
+            lat: cityData.coordinates?.lat,
+            lng: cityData.coordinates?.lng,
+            sectors: sectors ? {
+              create: sectors.map((s: any) => ({
+                name: s.name,
+                fee: s.fee,
+              })),
+            } : undefined,
+          },
+        });
       }
     } else {
+      // Sin ID o ID temporal: crear nueva ciudad
       city = await prisma.city.create({
         data: {
           name: cityData.name,

@@ -33,7 +33,6 @@ async function apiRequest<T>(
 
     return { success: true, data: json.data || json };
   } catch (error: any) {
-    console.error(`❌ [API] Error en ${endpoint}:`, error);
     return { success: false, error: error.message };
   }
 }
@@ -404,8 +403,8 @@ export function subscribeToAppData(
   // Ejecutar inmediatamente
   fetchData();
 
-  // Iniciar intervalo (30 segundos para dar tiempo a que los cambios persistan)
-  pollingInterval = setInterval(fetchData, 30000);
+  // Iniciar intervalo (5 minutos para evitar race conditions con cambios locales)
+  pollingInterval = setInterval(fetchData, 300000);
 
   // Retornar función para detener el polling
   return () => {

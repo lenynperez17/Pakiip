@@ -40,6 +40,7 @@ export async function GET(request: NextRequest) {
       data: {
         userId: settings.userId,
         selectedRole: settings.selectedRole,
+        selectedCity: settings.selectedCity,
       },
     });
   } catch (error: any) {
@@ -63,7 +64,7 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await request.json();
-    const { userId, selectedRole } = data;
+    const { userId, selectedRole, selectedCity } = data;
 
     // Solo el propio usuario o admin puede modificar la configuración
     if (session.user.role !== "admin" && session.user.id !== userId) {
@@ -73,12 +74,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Construir objeto de actualización dinámicamente
+    const updateData: { selectedRole?: string; selectedCity?: string } = {};
+    if (selectedRole !== undefined) updateData.selectedRole = selectedRole;
+    if (selectedCity !== undefined) updateData.selectedCity = selectedCity;
+
     const settings = await prisma.userSettings.upsert({
       where: { userId },
-      update: { selectedRole },
+      update: updateData,
       create: {
         userId,
         selectedRole: selectedRole || "customer",
+        selectedCity: selectedCity || null,
       },
     });
 
@@ -87,6 +94,7 @@ export async function POST(request: NextRequest) {
       data: {
         userId: settings.userId,
         selectedRole: settings.selectedRole,
+        selectedCity: settings.selectedCity,
       },
     });
   } catch (error: any) {

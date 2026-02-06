@@ -36,7 +36,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ success: true, data: formattedMessages });
   } catch (error: any) {
-    console.error("Error obteniendo mensajes:", error);
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 }
@@ -80,7 +79,53 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error: any) {
-    console.error("Error enviando mensaje:", error);
+    return NextResponse.json(
+      { success: false, error: error.message },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE: Eliminar mensaje (solo admin o autor)
+export async function DELETE(request: NextRequest) {
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return NextResponse.json(
+        { success: false, error: "No autorizado" },
+        { status: 401 }
+      );
+    }
+
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get("id");
+
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: "ID de mensaje requerido" },
+        { status: 400 }
+      );
+    }
+
+    const message = await prisma.message.findUnique({ where: { id } });
+    if (!message) {
+      return NextResponse.json(
+        { success: false, error: "Mensaje no encontrado" },
+        { status: 404 }
+      );
+    }
+
+    // Solo admin o el autor pueden eliminar
+    if (session.user.role !== "admin" && session.user.id !== message.senderId) {
+      return NextResponse.json(
+        { success: false, error: "No tienes permisos para eliminar este mensaje" },
+        { status: 403 }
+      );
+    }
+
+    await prisma.message.delete({ where: { id } });
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 }

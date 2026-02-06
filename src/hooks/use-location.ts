@@ -1,24 +1,16 @@
 /**
- * Hook profesional de geolocalización
+ * Hook de geolocalización - SOLO GPS de alta precisión
  *
- * Sistema completo de manejo de ubicaciones con:
- * - Solicitud de permisos con UI amigable
- * - Validación de precisión GPS
- * - Fallback automático a IP geolocation
- * - Caché inteligente en localStorage
- * - Detección de ciudad más cercana
- * - Manejo robusto de errores
- * - Retry logic con backoff exponencial
+ * NO usa fallbacks de IP, WiFi, caché ni ubicaciones guardadas.
+ * SIEMPRE obtiene ubicación GPS fresca del dispositivo.
  */
 
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { reverseGeocode } from '@/lib/google-geocoding';
-import { getLocationByIP } from '@/lib/ip-geolocation';
 import { calculateDistance } from '@/lib/haversine';
 import { City } from '@/lib/placeholder-data';
-import { useAppData } from './use-app-data';
 
 // ==================== TIPOS ====================
 
@@ -27,10 +19,10 @@ export type LocationAccuracy = 'excellent' | 'good' | 'medium' | 'poor' | 'very-
 export interface UserLocation {
   latitude: number;
   longitude: number;
-  accuracy: number; // metros
+  accuracy: number;
   accuracyLevel: LocationAccuracy;
   timestamp: number;
-  source: 'gps' | 'ip' | 'cached' | 'manual';
+  source: 'gps';
   address?: string;
   city?: string;
   country?: string;
@@ -53,131 +45,23 @@ export interface LocationState {
 // ==================== CONFIGURACIÓN ====================
 
 const CONFIG = {
-  // Tiempos
-  GPS_TIMEOUT: 15000, // 15 segundos para GPS
-  GPS_RETRY_TIMEOUT: 30000, // 30 segundos en retry
-  MAX_CACHE_AGE: 60 * 60 * 1000, // 1 hora
+  // Tiempos - 60 segundos para dar tiempo al GPS
+  GPS_TIMEOUT: 60000, // 60 segundos para GPS
 
-  // Precisión
+  // Precisión - solo para clasificar, NO para rechazar
   EXCELLENT_ACCURACY: 50, // < 50m = excelente
   GOOD_ACCURACY: 100, // < 100m = bueno
-  MEDIUM_ACCURACY: 500, // < 500m = medio
-  POOR_ACCURACY: 5000, // < 5km = pobre
-  MAX_ACCEPTABLE_ACCURACY: 10000, // 10km = máximo aceptable
-
-  // Retry
-  MAX_RETRIES: 2,
-  RETRY_DELAY_MS: 2000,
-
-  // Caché
-  CACHE_KEY: 'pakiip_user_location_v2',
-  LAST_PERMISSION_ASK_KEY: 'pakiip_last_permission_ask',
-  PERMISSION_ASK_COOLDOWN: 24 * 60 * 60 * 1000, // 24 horas
+  MEDIUM_ACCURACY: 300, // < 300m = medio
 };
 
 // ==================== UTILIDADES ====================
 
-/**
- * Determina el nivel de precisión basado en la accuracy en metros
- */
 function getAccuracyLevel(accuracy: number): LocationAccuracy {
   if (accuracy < CONFIG.EXCELLENT_ACCURACY) return 'excellent';
   if (accuracy < CONFIG.GOOD_ACCURACY) return 'good';
   if (accuracy < CONFIG.MEDIUM_ACCURACY) return 'medium';
-  if (accuracy < CONFIG.POOR_ACCURACY) return 'poor';
+  if (accuracy < 1000) return 'poor';
   return 'very-poor';
-}
-
-/**
- * Guarda ubicación en el servidor (o localStorage como fallback)
- */
-async function cacheLocation(location: UserLocation, userId?: string): Promise<void> {
-  try {
-    // Guardar en backend si hay usuario autenticado
-    if (userId) {
-      const { saveUserSettingsToBackend } = await import('@/lib/backend-adapter');
-      const result = await saveUserSettingsToBackend(userId, { lastLocation: location });
-
-      if (!result.success) {
-        localStorage.setItem(CONFIG.CACHE_KEY, JSON.stringify(location));
-      }
-    } else {
-      // Sin usuario, usar localStorage
-      localStorage.setItem(CONFIG.CACHE_KEY, JSON.stringify(location));
-    }
-  } catch {
-    try {
-      localStorage.setItem(CONFIG.CACHE_KEY, JSON.stringify(location));
-    } catch {
-      // No se pudo guardar ubicación
-    }
-  }
-}
-
-/**
- * Recupera ubicación del servidor (o localStorage como fallback)
- */
-async function getCachedLocation(userId?: string): Promise<UserLocation | null> {
-  try {
-    // Cargar del backend si hay usuario autenticado
-    if (userId) {
-      const { loadUserSettingsFromBackend } = await import('@/lib/backend-adapter');
-      const result = await loadUserSettingsFromBackend(userId);
-
-      if (result.success && result.data?.lastLocation) {
-        const location: UserLocation = result.data.lastLocation;
-        const age = Date.now() - location.timestamp;
-
-        if (age > CONFIG.MAX_CACHE_AGE) {
-          return null;
-        }
-
-        return { ...location, source: 'cached' };
-      }
-    }
-
-    // Sin usuario o sin datos en servidor, usar localStorage
-    const cached = localStorage.getItem(CONFIG.CACHE_KEY);
-    if (!cached) return null;
-
-    const location: UserLocation = JSON.parse(cached);
-    const age = Date.now() - location.timestamp;
-
-    if (age > CONFIG.MAX_CACHE_AGE) {
-      localStorage.removeItem(CONFIG.CACHE_KEY);
-      return null;
-    }
-
-    return { ...location, source: 'cached' };
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Verifica si podemos pedir permisos (cooldown de 24h)
- */
-function canAskPermission(): boolean {
-  try {
-    const lastAsk = localStorage.getItem(CONFIG.LAST_PERMISSION_ASK_KEY);
-    if (!lastAsk) return true;
-
-    const timeSinceAsk = Date.now() - parseInt(lastAsk);
-    return timeSinceAsk > CONFIG.PERMISSION_ASK_COOLDOWN;
-  } catch {
-    return true;
-  }
-}
-
-/**
- * Registra que pedimos permisos
- */
-function markPermissionAsked(): void {
-  try {
-    localStorage.setItem(CONFIG.LAST_PERMISSION_ASK_KEY, Date.now().toString());
-  } catch {
-    // No se pudo registrar
-  }
 }
 
 // ==================== HOOK PRINCIPAL ====================
@@ -185,23 +69,13 @@ function markPermissionAsked(): void {
 export function useLocation(
   cities?: City[],
   options?: {
-    autoRequest?: boolean; // Solicitar automáticamente al montar
-    useIPFallback?: boolean; // Usar IP si GPS falla
-    enableCache?: boolean; // Usar caché
-    minAccuracy?: number; // Precisión mínima aceptable en metros
+    autoRequest?: boolean;
   }
 ) {
   const {
     autoRequest = true,
-    useIPFallback = true,
-    enableCache = true,
-    minAccuracy = CONFIG.MAX_ACCEPTABLE_ACCURACY,
   } = options || {};
 
-  // Obtener usuario actual para persistencia en el servidor
-  const { currentUser } = useAppData();
-
-  // Estados
   const [state, setState] = useState<LocationState>({
     location: null,
     isLoading: false,
@@ -210,14 +84,13 @@ export function useLocation(
     hasAskedPermission: false,
   });
 
-  // Refs para evitar llamadas duplicadas
   const isRequestingRef = useRef(false);
-  const retryCountRef = useRef(0);
 
   /**
    * Obtiene ubicación por GPS
+   * ACEPTA CUALQUIER ubicación que el GPS devuelva - sin validación de precisión
    */
-  const getGPSLocation = useCallback(async (retryCount: number = 0): Promise<UserLocation> => {
+  const getGPSLocation = useCallback(async (): Promise<UserLocation> => {
     return new Promise((resolve, reject) => {
       if (!navigator.geolocation) {
         reject({
@@ -228,36 +101,16 @@ export function useLocation(
         return;
       }
 
-      const timeout = retryCount > 0 ? CONFIG.GPS_RETRY_TIMEOUT : CONFIG.GPS_TIMEOUT;
-
       navigator.geolocation.getCurrentPosition(
         async (position) => {
           const { latitude, longitude, accuracy } = position.coords;
           const accuracyLevel = getAccuracyLevel(accuracy);
 
-          // Validar precisión
-          if (accuracy > minAccuracy) {
-            // Si tenemos retries, intentar de nuevo
-            if (retryCount < CONFIG.MAX_RETRIES) {
-              setTimeout(() => {
-                getGPSLocation(retryCount + 1).then(resolve).catch(reject);
-              }, CONFIG.RETRY_DELAY_MS);
-              return;
-            }
-
-            // Sin retries, rechazar
-            reject({
-              code: 'POSITION_UNAVAILABLE',
-              message: `GPS impreciso (${accuracy.toFixed(0)}m). Usa búsqueda manual.`,
-              canRetry: true,
-            } as LocationError);
-            return;
-          }
+          // ACEPTAR CUALQUIER UBICACIÓN que el GPS devuelva
+          console.log(`[GPS] Ubicación obtenida: ${latitude}, ${longitude} (precisión: ${Math.round(accuracy)}m)`);
 
           // Obtener dirección con geocoding reverso
           let address: string | undefined;
-          let city: string | undefined;
-          let country: string | undefined;
 
           try {
             const geocodeResult = await reverseGeocode(latitude, longitude);
@@ -276,8 +129,6 @@ export function useLocation(
             timestamp: Date.now(),
             source: 'gps',
             address,
-            city,
-            country,
           };
 
           resolve(location);
@@ -289,28 +140,28 @@ export function useLocation(
             case error.PERMISSION_DENIED:
               locationError = {
                 code: 'PERMISSION_DENIED',
-                message: 'Permisos de ubicación denegados',
+                message: 'Permisos de ubicación denegados. Por favor, habilita el acceso a tu ubicación.',
                 canRetry: false,
               };
               break;
             case error.POSITION_UNAVAILABLE:
               locationError = {
                 code: 'POSITION_UNAVAILABLE',
-                message: 'Ubicación no disponible',
+                message: 'GPS no disponible. Asegúrate de tener el GPS activado.',
                 canRetry: true,
               };
               break;
             case error.TIMEOUT:
               locationError = {
                 code: 'TIMEOUT',
-                message: 'Tiempo de espera agotado',
+                message: 'Tiempo de espera agotado. Intenta en un lugar con mejor señal GPS.',
                 canRetry: true,
               };
               break;
             default:
               locationError = {
                 code: 'UNKNOWN',
-                message: error.message || 'Error desconocido',
+                message: error.message || 'Error desconocido al obtener ubicación',
                 canRetry: true,
               };
           }
@@ -318,155 +169,56 @@ export function useLocation(
           reject(locationError);
         },
         {
-          enableHighAccuracy: true,
-          timeout,
-          maximumAge: 0, // Siempre pedir ubicación fresca
+          enableHighAccuracy: true, // GPS real, la más precisa posible
+          timeout: CONFIG.GPS_TIMEOUT, // 60 segundos
+          maximumAge: 0, // siempre ubicación ACTUAL, nunca cacheada
         }
       );
     });
-  }, [minAccuracy]);
-
-  /**
-   * Obtiene ubicación por IP (fallback)
-   */
-  const getIPLocation = useCallback(async (): Promise<UserLocation> => {
-    try {
-      const ipLocation = await getLocationByIP();
-
-      // Hacer reverse geocoding para obtener dirección más precisa
-      let address: string | undefined;
-      let city: string | undefined = ipLocation.city;
-      let country: string | undefined = ipLocation.country;
-
-      try {
-        const geocodeResult = await reverseGeocode(ipLocation.latitude, ipLocation.longitude);
-        if (geocodeResult) {
-          address = geocodeResult.formattedAddress;
-        }
-      } catch {
-        // Si falla el geocoding, usar la dirección básica de IP
-        address = `${ipLocation.city}, ${ipLocation.region}, ${ipLocation.country}`;
-      }
-
-      return {
-        latitude: ipLocation.latitude,
-        longitude: ipLocation.longitude,
-        accuracy: ipLocation.accuracy,
-        accuracyLevel: getAccuracyLevel(ipLocation.accuracy),
-        timestamp: Date.now(),
-        source: 'ip',
-        address: address || `${ipLocation.city}, ${ipLocation.region}, ${ipLocation.country}`,
-        city,
-        country,
-      };
-    } catch {
-      throw {
-        code: 'POSITION_UNAVAILABLE',
-        message: 'No se pudo obtener ubicación por IP',
-        canRetry: false,
-      } as LocationError;
-    }
   }, []);
 
   /**
-   * Solicita ubicación (flujo completo)
+   * Solicita ubicación GPS - SIEMPRE fresca, NUNCA caché
    */
   const requestLocation = useCallback(async (force: boolean = false) => {
-    // Evitar llamadas duplicadas
     if (isRequestingRef.current && !force) {
       return;
     }
 
     isRequestingRef.current = true;
-    retryCountRef.current = 0;
-
     setState(prev => ({ ...prev, isLoading: true, error: null }));
 
     try {
-      // 1. Intentar caché si está habilitado y no es forzado
-      if (enableCache && !force) {
-        const cached = await getCachedLocation(currentUser?.id);
-        if (cached) {
-          setState({
-            location: cached,
-            isLoading: false,
-            error: null,
-            permissionStatus: 'granted',
-            hasAskedPermission: true,
-          });
-          isRequestingRef.current = false;
-          return;
-        }
-      }
-
-      // 2. Verificar permisos de geolocalización
+      // Verificar permisos
       if (navigator.permissions) {
         try {
           const permission = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
           setState(prev => ({ ...prev, permissionStatus: permission.state }));
 
           if (permission.state === 'denied') {
-            // Usar IP fallback si está habilitado
-            if (useIPFallback) {
-              const ipLocation = await getIPLocation();
-              await cacheLocation(ipLocation, currentUser?.id);
-              setState({
-                location: ipLocation,
-                isLoading: false,
-                error: null,
-                permissionStatus: 'denied',
-                hasAskedPermission: true,
-              });
-              isRequestingRef.current = false;
-              return;
-            }
-
             throw {
               code: 'PERMISSION_DENIED',
-              message: 'Permisos de ubicación denegados',
+              message: 'Permisos de ubicación denegados. Habilita el GPS en la configuración de tu navegador.',
               canRetry: false,
             } as LocationError;
           }
-        } catch {
-          // No se pudo verificar permisos
+        } catch (permError) {
+          if ((permError as LocationError).code === 'PERMISSION_DENIED') {
+            throw permError;
+          }
         }
       }
 
-      // 3. Intentar obtener ubicación por GPS
-      try {
-        markPermissionAsked();
-        const gpsLocation = await getGPSLocation();
+      // Obtener ubicación GPS fresca
+      const gpsLocation = await getGPSLocation();
 
-        await cacheLocation(gpsLocation, currentUser?.id);
-
-        setState({
-          location: gpsLocation,
-          isLoading: false,
-          error: null,
-          permissionStatus: 'granted',
-          hasAskedPermission: true,
-        });
-      } catch (gpsError: unknown) {
-        const error = gpsError as LocationError;
-
-        // 4. Fallback a IP si está habilitado
-        if (useIPFallback && error.code !== 'TIMEOUT') {
-          const ipLocation = await getIPLocation();
-
-          await cacheLocation(ipLocation, currentUser?.id);
-
-          setState({
-            location: ipLocation,
-            isLoading: false,
-            error: null,
-            permissionStatus: error.code === 'PERMISSION_DENIED' ? 'denied' : 'prompt',
-            hasAskedPermission: true,
-          });
-        } else {
-          // Sin fallback, propagar error
-          throw gpsError;
-        }
-      }
+      setState({
+        location: gpsLocation,
+        isLoading: false,
+        error: null,
+        permissionStatus: 'granted',
+        hasAskedPermission: true,
+      });
     } catch (error: unknown) {
       setState(prev => ({
         ...prev,
@@ -477,7 +229,7 @@ export function useLocation(
     } finally {
       isRequestingRef.current = false;
     }
-  }, [enableCache, useIPFallback, getGPSLocation, getIPLocation, currentUser]);
+  }, [getGPSLocation]);
 
   /**
    * Encuentra la ciudad más cercana
@@ -510,62 +262,25 @@ export function useLocation(
   }, [state.location, cities]);
 
   /**
-   * Refresca la ubicación
+   * Refresca la ubicación (siempre GPS fresco)
    */
   const refreshLocation = useCallback(() => {
     return requestLocation(true);
   }, [requestLocation]);
 
-  /**
-   * Limpia el caché
-   */
-  const clearCache = useCallback(() => {
-    try {
-      localStorage.removeItem(CONFIG.CACHE_KEY);
-    } catch {
-      // Error limpiando caché
-    }
-  }, []);
-
-  // Auto-request al montar si está habilitado
+  // Auto-request al montar
   useEffect(() => {
-    const initLocation = async () => {
-      // Siempre intentar cargar del caché primero
-      if (enableCache && !state.location) {
-        const cached = await getCachedLocation(currentUser?.id);
-        if (cached) {
-          setState(prev => ({
-            ...prev,
-            location: cached,
-            isLoading: false,
-            hasAskedPermission: true,
-          }));
-          return;
-        }
-      }
-
-      // Si no hay caché y podemos pedir permisos, solicitar ubicación
-      if (autoRequest && !state.hasAskedPermission && canAskPermission()) {
-        requestLocation();
-      }
-    };
-
-    initLocation();
-  }, [autoRequest, enableCache, currentUser?.id, state.hasAskedPermission, state.location, requestLocation]);
+    if (autoRequest && !state.hasAskedPermission) {
+      requestLocation();
+    }
+  }, [autoRequest, state.hasAskedPermission, requestLocation]);
 
   return {
-    // Estado
     ...state,
-
-    // Ciudad más cercana
     nearestCity: findNearestCity(),
-
-    // Acciones
     requestLocation,
     refreshLocation,
-    clearCache,
-
-    // Utilidades
-    canAskPermission: canAskPermission(),
+    clearCache: () => {}, // Ya no hay caché
+    canAskPermission: true, // Siempre se puede pedir
   };
 }

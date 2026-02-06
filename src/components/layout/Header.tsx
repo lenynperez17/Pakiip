@@ -23,7 +23,6 @@ import { useToast } from "@/hooks/use-toast";
 import { reverseGeocode, searchPlaces, GeocodeResult } from "@/lib/google-geocoding";
 import { RoleSwitcher } from "@/components/RoleSwitcher";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
-import { useLocation } from "@/hooks/use-location";
 import { useSession } from "next-auth/react";
 
 
@@ -33,23 +32,25 @@ export function Header() {
   const pathname = usePathname();
   const router = useRouter();
   const { totalItems } = useCart();
-  const { appSettings: settings, currentUser, logout, cities, selectedCity, setSelectedCity, availableRoles } = useAppData();
+  const {
+    appSettings: settings,
+    currentUser,
+    logout,
+    cities,
+    selectedCity,
+    setSelectedCity,
+    availableRoles,
+    // Ubicación compartida
+    userLocation,
+    isLoadingLocation,
+    locationError,
+    nearestCity,
+    refreshLocation,
+    setManualLocation,
+    isManualLocation
+  } = useAppData();
   const { toast } = useToast();
   const { data: session } = useSession();
-
-  // 🎯 Usar nuevo hook de ubicación profesional
-  const {
-    location: userLocation,
-    isLoading: isLoadingLocation,
-    error: locationError,
-    nearestCity,
-    refreshLocation
-  } = useLocation(cities, {
-    autoRequest: true,
-    useIPFallback: true,
-    enableCache: true,
-    minAccuracy: 10000 // Aceptar hasta 10km para el header (menos exigente)
-  });
 
   // Dirección actual para mostrar en el header
   const [currentAddress, setCurrentAddress] = useState<string | null>(null);
@@ -131,9 +132,20 @@ export function Header() {
         // Fallback a coordenadas
         setCurrentAddress(`${userLocation.latitude.toFixed(4)}°, ${userLocation.longitude.toFixed(4)}°`);
       }
-    } else if (!isLoadingLocation && locationError) {
-      // Si hay error y no estamos cargando, mostrar ubicación por defecto
-      setCurrentAddress("Lima, Perú");
+    } else if (!isLoadingLocation) {
+      // Si no hay ubicación y no estamos cargando, mostrar mensaje según el tipo de error
+      if (locationError) {
+        // locationError es un objeto con { code, message, canRetry }
+        const errorCode = locationError.code;
+        if (errorCode === 'PERMISSION_DENIED') {
+          setCurrentAddress("Activar GPS");
+        } else {
+          // Para timeout u otros errores, mostrar mensaje neutral
+          setCurrentAddress("Buscar ubicación");
+        }
+      } else {
+        setCurrentAddress("Buscar ubicación");
+      }
     }
   }, [userLocation, isLoadingLocation, locationError]);
 
@@ -172,6 +184,8 @@ export function Header() {
 
   // Función para seleccionar una dirección de las sugerencias
   const selectLocation = (place: GeocodeResult) => {
+    // Guardar como ubicación manual fijada
+    setManualLocation(place.formattedAddress, place.coordinates);
     setCurrentAddress(place.formattedAddress);
     setSearchQuery("");
     setSuggestions([]);

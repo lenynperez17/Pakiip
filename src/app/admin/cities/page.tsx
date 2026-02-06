@@ -2,6 +2,8 @@
 
 "use client";
 
+export const dynamic = 'force-dynamic';
+
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -82,7 +84,8 @@ function AdminDeliveryZonesPageContent() {
     
     const formData = new FormData(event.currentTarget);
     const updatedCity: City = {
-        id: editingCity?.id || `city${Date.now()}`,
+        // Usar crypto.randomUUID para IDs únicos (evita colisiones de Date.now())
+        id: editingCity?.id || `city_${crypto.randomUUID().slice(0, 8)}`,
         name: formData.get('name') as string,
         coordinates: cityCoordinates,
     };

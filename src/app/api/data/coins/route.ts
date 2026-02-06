@@ -53,7 +53,6 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error: any) {
-    console.error("Error obteniendo monedas:", error);
     return NextResponse.json(
       { success: false, error: error.message || "Error interno" },
       { status: 500 }
@@ -78,6 +77,29 @@ export async function POST(request: NextRequest) {
     if (!userId || !type || amount === undefined) {
       return NextResponse.json(
         { success: false, error: "userId, type y amount son requeridos" },
+        { status: 400 }
+      );
+    }
+
+    // Validar que el monto sea un número válido y no sea negativo para EARNED/BONUS
+    if (typeof amount !== 'number' || isNaN(amount)) {
+      return NextResponse.json(
+        { success: false, error: "El monto debe ser un número válido" },
+        { status: 400 }
+      );
+    }
+
+    // Para SPENT el monto debe ser negativo, para EARNED/BONUS positivo
+    const upperType = type.toUpperCase();
+    if ((upperType === 'EARNED' || upperType === 'BONUS') && amount <= 0) {
+      return NextResponse.json(
+        { success: false, error: "El monto para EARNED/BONUS debe ser positivo" },
+        { status: 400 }
+      );
+    }
+    if (upperType === 'SPENT' && amount >= 0) {
+      return NextResponse.json(
+        { success: false, error: "El monto para SPENT debe ser negativo" },
         { status: 400 }
       );
     }
@@ -133,7 +155,6 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error: any) {
-    console.error("Error agregando transacción de monedas:", error);
     return NextResponse.json(
       { success: false, error: error.message || "Error interno" },
       { status: 500 }
@@ -173,7 +194,6 @@ export async function PUT(request: NextRequest) {
       data: { coins: updatedUser.coins },
     });
   } catch (error: any) {
-    console.error("Error actualizando monedas:", error);
     return NextResponse.json(
       { success: false, error: error.message || "Error interno" },
       { status: 500 }

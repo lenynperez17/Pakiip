@@ -2,6 +2,8 @@
 
 "use client";
 
+export const dynamic = 'force-dynamic';
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -35,6 +37,9 @@ function AdminDriversPageContent() {
   const handleAddDriver = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
+    // Parsear commissionRate correctamente (no usar || que ignora 0)
+    const commissionRateStr = formData.get('commissionRate') as string;
+    const commissionRate = commissionRateStr ? parseFloat(commissionRateStr) : 80;
     const newDriver: DeliveryDriver = {
         id: '', // Dejar vacío para que Prisma genere un ID real
         name: formData.get('name') as string,
@@ -43,8 +48,8 @@ function AdminDriversPageContent() {
         phone: formData.get('phone') as string,
         bankAccount: formData.get('bankAccount') as string,
         vehicle: formData.get('vehicle') as DeliveryDriver['vehicle'],
-        commissionRate: parseFloat(formData.get('commissionRate') as string) || 80,
-        status: 'Activo',
+        commissionRate: isNaN(commissionRate) ? 80 : commissionRate,
+        status: 'Activo', // Drivers nuevos inician activos
         debt: 0,
     };
     saveDriver(newDriver);
@@ -62,6 +67,9 @@ function AdminDriversPageContent() {
     if (!editingDriver) return;
 
     const formData = new FormData(event.currentTarget);
+    // Parsear commissionRate correctamente (no usar || que ignora 0)
+    const commissionRateStr = formData.get('commissionRate') as string;
+    const commissionRate = commissionRateStr ? parseFloat(commissionRateStr) : editingDriver.commissionRate;
     const updatedDriver: DeliveryDriver = {
         ...editingDriver,
         name: formData.get('name') as string,
@@ -70,7 +78,7 @@ function AdminDriversPageContent() {
         phone: formData.get('phone') as string,
         bankAccount: formData.get('bankAccount') as string,
         vehicle: formData.get('vehicle') as DeliveryDriver['vehicle'],
-        commissionRate: parseFloat(formData.get('commissionRate') as string) || editingDriver.commissionRate,
+        commissionRate: isNaN(commissionRate) ? editingDriver.commissionRate : commissionRate,
         status: formData.get('status') as DeliveryDriver['status'],
     };
 

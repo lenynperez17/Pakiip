@@ -6,13 +6,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Truck, Users, ListOrdered, CheckCircle, Map, Wallet, Settings } from 'lucide-react';
 import { useAppData } from '@/hooks/use-app-data';
 import { Badge } from '@/components/ui/badge';
+import type { DeliveryDriver } from '@/lib/types';
 import { AuthGuard } from "@/components/AuthGuard";
 
 function DriverDashboardPageContent() {
     const { orders, drivers, currentUser, getDriverByUserId } = useAppData();
 
-    // 🔒 SEGURIDAD: Buscar driver por el userId del usuario logueado
-    const driver = currentUser?.role === 'driver' ? getDriverByUserId(currentUser.id) : undefined;
+    // 🔒 SEGURIDAD: Cuando el rol es driver, currentUser YA es el objeto driver
+    const driver = currentUser?.role === 'driver' ? (currentUser as DeliveryDriver) : undefined;
 
     if (!driver) {
       return (

@@ -12,7 +12,6 @@ export async function GET() {
     const vendors = await db.getVendors();
     return NextResponse.json({ success: true, data: vendors });
   } catch (error: any) {
-    console.error("Error obteniendo vendors:", error);
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 }
@@ -31,21 +30,41 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Solo admin o el propio vendor puede modificar
     const data = await request.json();
-    const userRole = session.user.role;
+    const userRole = session.user.role || "customer"; // Sin rol = customer por defecto
+    const userId = session.user.id;
 
-    if (userRole !== "admin" && userRole !== "vendor") {
+    // Verificar si el vendor ya existe en la base de datos
+    let existingVendor = null;
+    if (data.id) {
+      existingVendor = await db.getVendorById(data.id);
+    }
+
+    // Permisos:
+    // - Admin: puede crear/editar cualquier vendor
+    // - Vendor: puede editar su propio vendor
+    // - Customer: puede crear su propio vendor (registro inicial)
+    const isAdmin = userRole === "admin";
+    // Customer puede crear vendor si no existe en DB (aunque envíe un ID)
+    const isCustomerCreating = (userRole === "customer" || !userRole) && !existingVendor;
+    const isEditingOwnVendor = existingVendor && userRole === "vendor" && existingVendor.ownerId === userId;
+
+
+    if (!isAdmin && !isCustomerCreating && !isEditingOwnVendor) {
       return NextResponse.json(
         { success: false, error: "No tienes permisos para esta operación" },
         { status: 403 }
       );
     }
 
+    // Si es customer creando su vendor, asegurar que el ownerId sea su propio ID
+    if (isCustomerCreating) {
+      data.ownerId = userId;
+    }
+
     const vendor = await db.saveVendor(data);
     return NextResponse.json({ success: true, data: vendor });
   } catch (error: any) {
-    console.error("Error guardando vendor:", error);
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 }
@@ -77,7 +96,6 @@ export async function DELETE(request: NextRequest) {
     await db.deleteVendor(id);
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    console.error("Error eliminando vendor:", error);
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 }

@@ -26,7 +26,6 @@ export async function GET(request: NextRequest) {
     const orders = await db.getOrders(filters);
     return NextResponse.json({ success: true, data: orders });
   } catch (error: any) {
-    console.error("Error obteniendo pedidos:", error);
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 }
@@ -46,10 +45,33 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await request.json();
+
+    // Validar campos requeridos para nuevas órdenes
+    if (!data.id || data.id.startsWith('TEMP_') || data.id.startsWith('order_')) {
+      // Es una nueva orden, validar campos obligatorios
+      if (!data.customerName || !data.customerPhone || !data.customerAddress) {
+        return NextResponse.json(
+          { success: false, error: "Nombre, teléfono y dirección del cliente son requeridos" },
+          { status: 400 }
+        );
+      }
+      if (!data.items || data.items.length === 0) {
+        return NextResponse.json(
+          { success: false, error: "La orden debe tener al menos un producto" },
+          { status: 400 }
+        );
+      }
+      if (!data.vendorId) {
+        return NextResponse.json(
+          { success: false, error: "La orden debe estar asociada a una tienda" },
+          { status: 400 }
+        );
+      }
+    }
+
     const order = await db.saveOrder(data);
     return NextResponse.json({ success: true, data: order });
   } catch (error: any) {
-    console.error("Error guardando pedido:", error);
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 }
@@ -78,10 +100,18 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
+    // Verificar que el pedido existe antes de eliminar
+    const existingOrder = await prisma.order.findUnique({ where: { id } });
+    if (!existingOrder) {
+      return NextResponse.json(
+        { success: false, error: "Pedido no encontrado" },
+        { status: 404 }
+      );
+    }
+
     await prisma.order.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    console.error("Error eliminando pedido:", error);
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 }

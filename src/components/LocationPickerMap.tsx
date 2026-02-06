@@ -80,6 +80,11 @@ export function LocationPickerMap({ onLocationSelect, initialCenter, initialMark
 
   const handleCenterOnUser = () => {
     if (navigator.geolocation) {
+      toast({
+        title: "Obteniendo ubicación...",
+        description: "Esperando señal GPS de alta precisión.",
+      });
+
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const userLocation: Coordinate = {
@@ -87,16 +92,38 @@ export function LocationPickerMap({ onLocationSelect, initialCenter, initialMark
             lng: position.coords.longitude,
           };
           map?.panTo(userLocation);
-          map?.setZoom(16);
+          map?.setZoom(17);
           setMarkerPosition(userLocation);
           getAddressFromCoordinates(userLocation);
+
+          // Mostrar precisión obtenida
+          const accuracy = position.coords.accuracy;
+          if (accuracy > 100) {
+            toast({
+              title: "Ubicación obtenida",
+              description: `Precisión: ~${Math.round(accuracy)}m. Puedes ajustar manualmente si es necesario.`,
+            });
+          }
         },
-        () => {
+        (error) => {
+          let errorMessage = "No se pudo obtener tu ubicación.";
+          if (error.code === error.PERMISSION_DENIED) {
+            errorMessage = "Permisos de ubicación denegados.";
+          } else if (error.code === error.POSITION_UNAVAILABLE) {
+            errorMessage = "Ubicación no disponible en este momento.";
+          } else if (error.code === error.TIMEOUT) {
+            errorMessage = "Tiempo de espera agotado. Intenta de nuevo.";
+          }
           toast({
             title: "Error de Ubicación",
-            description: "No se pudo obtener tu ubicación. Asegúrate de haber concedido los permisos.",
+            description: errorMessage,
             variant: "destructive"
           });
+        },
+        {
+          enableHighAccuracy: true, // GPS real, la más precisa posible
+          timeout: 60000, // 60 segundos
+          maximumAge: 0, // siempre ubicación ACTUAL, nunca cacheada
         }
       );
     } else {

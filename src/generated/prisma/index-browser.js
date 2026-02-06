@@ -481,6 +481,10 @@ exports.Prisma.AppSettingsScalarFieldEnum = {
   customDomain: 'customDomain',
   shippingSettings: 'shippingSettings',
   cashOnDeliveryEnabled: 'cashOnDeliveryEnabled',
+  paymentMethods: 'paymentMethods',
+  promotionalBanners: 'promotionalBanners',
+  announcementBanners: 'announcementBanners',
+  googleClientId: 'googleClientId',
   updatedAt: 'updatedAt'
 };
 

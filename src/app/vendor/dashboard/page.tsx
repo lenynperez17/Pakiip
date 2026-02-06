@@ -8,18 +8,19 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Package, ListOrdered, BarChartHorizontal, Settings, Store } from "lucide-react";
 import { useAppData } from "@/hooks/use-app-data";
 import { AuthGuard } from "@/components/AuthGuard";
+import type { Vendor } from "@/lib/types";
 
 function VendorDashboardPageContent() {
-  const { vendors, orders, currentUser, getVendorByOwnerId } = useAppData();
+  const { vendors, orders, currentUser } = useAppData();
   const searchParams = useSearchParams();
 
-  // Obtener vendorId de la URL (para admin) o buscar vendor por ownerId (para vendors)
+  // Obtener vendorId de la URL (para admin) o usar currentUser directamente (para vendors)
   const vendorIdFromUrl = searchParams.get('vendorId');
 
-  // Buscar el vendor: si hay vendorId en URL (admin), buscar por ID; sino buscar por ownerId del usuario logueado
+  // Buscar el vendor: si hay vendorId en URL (admin), buscar por ID; sino currentUser YA es el vendor
   const vendor = vendorIdFromUrl
     ? vendors.find(v => v.id === vendorIdFromUrl)
-    : (currentUser?.role === 'vendor' ? getVendorByOwnerId(currentUser.id) : undefined);
+    : (currentUser?.role === 'vendor' ? (currentUser as Vendor) : undefined);
 
   if (!vendor) {
     return (

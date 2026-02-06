@@ -36471,6 +36471,7 @@ export namespace Prisma {
     featuredStoreCost: Decimal | null
     customDomain: string | null
     cashOnDeliveryEnabled: boolean | null
+    googleClientId: string | null
     updatedAt: Date | null
   }
 
@@ -36490,6 +36491,7 @@ export namespace Prisma {
     featuredStoreCost: Decimal | null
     customDomain: string | null
     cashOnDeliveryEnabled: boolean | null
+    googleClientId: string | null
     updatedAt: Date | null
   }
 
@@ -36512,6 +36514,10 @@ export namespace Prisma {
     customDomain: number
     shippingSettings: number
     cashOnDeliveryEnabled: number
+    paymentMethods: number
+    promotionalBanners: number
+    announcementBanners: number
+    googleClientId: number
     updatedAt: number
     _all: number
   }
@@ -36545,6 +36551,7 @@ export namespace Prisma {
     featuredStoreCost?: true
     customDomain?: true
     cashOnDeliveryEnabled?: true
+    googleClientId?: true
     updatedAt?: true
   }
 
@@ -36564,6 +36571,7 @@ export namespace Prisma {
     featuredStoreCost?: true
     customDomain?: true
     cashOnDeliveryEnabled?: true
+    googleClientId?: true
     updatedAt?: true
   }
 
@@ -36586,6 +36594,10 @@ export namespace Prisma {
     customDomain?: true
     shippingSettings?: true
     cashOnDeliveryEnabled?: true
+    paymentMethods?: true
+    promotionalBanners?: true
+    announcementBanners?: true
+    googleClientId?: true
     updatedAt?: true
     _all?: true
   }
@@ -36695,6 +36707,10 @@ export namespace Prisma {
     customDomain: string | null
     shippingSettings: JsonValue
     cashOnDeliveryEnabled: boolean
+    paymentMethods: JsonValue
+    promotionalBanners: JsonValue
+    announcementBanners: JsonValue
+    googleClientId: string | null
     updatedAt: Date
     _count: AppSettingsCountAggregateOutputType | null
     _avg: AppSettingsAvgAggregateOutputType | null
@@ -36736,6 +36752,10 @@ export namespace Prisma {
     customDomain?: boolean
     shippingSettings?: boolean
     cashOnDeliveryEnabled?: boolean
+    paymentMethods?: boolean
+    promotionalBanners?: boolean
+    announcementBanners?: boolean
+    googleClientId?: boolean
     updatedAt?: boolean
   }, ExtArgs["result"]["appSettings"]>
 
@@ -36758,6 +36778,10 @@ export namespace Prisma {
     customDomain?: boolean
     shippingSettings?: boolean
     cashOnDeliveryEnabled?: boolean
+    paymentMethods?: boolean
+    promotionalBanners?: boolean
+    announcementBanners?: boolean
+    googleClientId?: boolean
     updatedAt?: boolean
   }, ExtArgs["result"]["appSettings"]>
 
@@ -36780,6 +36804,10 @@ export namespace Prisma {
     customDomain?: boolean
     shippingSettings?: boolean
     cashOnDeliveryEnabled?: boolean
+    paymentMethods?: boolean
+    promotionalBanners?: boolean
+    announcementBanners?: boolean
+    googleClientId?: boolean
     updatedAt?: boolean
   }, ExtArgs["result"]["appSettings"]>
 
@@ -36802,10 +36830,14 @@ export namespace Prisma {
     customDomain?: boolean
     shippingSettings?: boolean
     cashOnDeliveryEnabled?: boolean
+    paymentMethods?: boolean
+    promotionalBanners?: boolean
+    announcementBanners?: boolean
+    googleClientId?: boolean
     updatedAt?: boolean
   }
 
-  export type AppSettingsOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "appName" | "logoUrl" | "heroImageUrl" | "welcomeImageUrl" | "driverWelcomeImageUrl" | "loginBackgroundImageUrl" | "hideFooter" | "taxType" | "taxRate" | "taxExemptRegions" | "currencySymbol" | "verificationMethods" | "enablePasswordRecovery" | "featuredStoreCost" | "customDomain" | "shippingSettings" | "cashOnDeliveryEnabled" | "updatedAt", ExtArgs["result"]["appSettings"]>
+  export type AppSettingsOmit<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = $Extensions.GetOmit<"id" | "appName" | "logoUrl" | "heroImageUrl" | "welcomeImageUrl" | "driverWelcomeImageUrl" | "loginBackgroundImageUrl" | "hideFooter" | "taxType" | "taxRate" | "taxExemptRegions" | "currencySymbol" | "verificationMethods" | "enablePasswordRecovery" | "featuredStoreCost" | "customDomain" | "shippingSettings" | "cashOnDeliveryEnabled" | "paymentMethods" | "promotionalBanners" | "announcementBanners" | "googleClientId" | "updatedAt", ExtArgs["result"]["appSettings"]>
 
   export type $AppSettingsPayload<ExtArgs extends $Extensions.InternalArgs = $Extensions.DefaultArgs> = {
     name: "AppSettings"
@@ -36829,6 +36861,10 @@ export namespace Prisma {
       customDomain: string | null
       shippingSettings: Prisma.JsonValue
       cashOnDeliveryEnabled: boolean
+      paymentMethods: Prisma.JsonValue
+      promotionalBanners: Prisma.JsonValue
+      announcementBanners: Prisma.JsonValue
+      googleClientId: string | null
       updatedAt: Date
     }, ExtArgs["result"]["appSettings"]>
     composites: {}
@@ -37271,6 +37307,10 @@ export namespace Prisma {
     readonly customDomain: FieldRef<"AppSettings", 'String'>
     readonly shippingSettings: FieldRef<"AppSettings", 'Json'>
     readonly cashOnDeliveryEnabled: FieldRef<"AppSettings", 'Boolean'>
+    readonly paymentMethods: FieldRef<"AppSettings", 'Json'>
+    readonly promotionalBanners: FieldRef<"AppSettings", 'Json'>
+    readonly announcementBanners: FieldRef<"AppSettings", 'Json'>
+    readonly googleClientId: FieldRef<"AppSettings", 'String'>
     readonly updatedAt: FieldRef<"AppSettings", 'DateTime'>
   }
     
@@ -38097,6 +38137,10 @@ export namespace Prisma {
     customDomain: 'customDomain',
     shippingSettings: 'shippingSettings',
     cashOnDeliveryEnabled: 'cashOnDeliveryEnabled',
+    paymentMethods: 'paymentMethods',
+    promotionalBanners: 'promotionalBanners',
+    announcementBanners: 'announcementBanners',
+    googleClientId: 'googleClientId',
     updatedAt: 'updatedAt'
   };
 
@@ -40644,6 +40688,10 @@ export namespace Prisma {
     customDomain?: StringNullableFilter<"AppSettings"> | string | null
     shippingSettings?: JsonFilter<"AppSettings">
     cashOnDeliveryEnabled?: BoolFilter<"AppSettings"> | boolean
+    paymentMethods?: JsonFilter<"AppSettings">
+    promotionalBanners?: JsonFilter<"AppSettings">
+    announcementBanners?: JsonFilter<"AppSettings">
+    googleClientId?: StringNullableFilter<"AppSettings"> | string | null
     updatedAt?: DateTimeFilter<"AppSettings"> | Date | string
   }
 
@@ -40666,6 +40714,10 @@ export namespace Prisma {
     customDomain?: SortOrderInput | SortOrder
     shippingSettings?: SortOrder
     cashOnDeliveryEnabled?: SortOrder
+    paymentMethods?: SortOrder
+    promotionalBanners?: SortOrder
+    announcementBanners?: SortOrder
+    googleClientId?: SortOrderInput | SortOrder
     updatedAt?: SortOrder
   }
 
@@ -40691,6 +40743,10 @@ export namespace Prisma {
     customDomain?: StringNullableFilter<"AppSettings"> | string | null
     shippingSettings?: JsonFilter<"AppSettings">
     cashOnDeliveryEnabled?: BoolFilter<"AppSettings"> | boolean
+    paymentMethods?: JsonFilter<"AppSettings">
+    promotionalBanners?: JsonFilter<"AppSettings">
+    announcementBanners?: JsonFilter<"AppSettings">
+    googleClientId?: StringNullableFilter<"AppSettings"> | string | null
     updatedAt?: DateTimeFilter<"AppSettings"> | Date | string
   }, "id">
 
@@ -40713,6 +40769,10 @@ export namespace Prisma {
     customDomain?: SortOrderInput | SortOrder
     shippingSettings?: SortOrder
     cashOnDeliveryEnabled?: SortOrder
+    paymentMethods?: SortOrder
+    promotionalBanners?: SortOrder
+    announcementBanners?: SortOrder
+    googleClientId?: SortOrderInput | SortOrder
     updatedAt?: SortOrder
     _count?: AppSettingsCountOrderByAggregateInput
     _avg?: AppSettingsAvgOrderByAggregateInput
@@ -40743,6 +40803,10 @@ export namespace Prisma {
     customDomain?: StringNullableWithAggregatesFilter<"AppSettings"> | string | null
     shippingSettings?: JsonWithAggregatesFilter<"AppSettings">
     cashOnDeliveryEnabled?: BoolWithAggregatesFilter<"AppSettings"> | boolean
+    paymentMethods?: JsonWithAggregatesFilter<"AppSettings">
+    promotionalBanners?: JsonWithAggregatesFilter<"AppSettings">
+    announcementBanners?: JsonWithAggregatesFilter<"AppSettings">
+    googleClientId?: StringNullableWithAggregatesFilter<"AppSettings"> | string | null
     updatedAt?: DateTimeWithAggregatesFilter<"AppSettings"> | Date | string
   }
 
@@ -43243,6 +43307,10 @@ export namespace Prisma {
     customDomain?: string | null
     shippingSettings?: JsonNullValueInput | InputJsonValue
     cashOnDeliveryEnabled?: boolean
+    paymentMethods?: JsonNullValueInput | InputJsonValue
+    promotionalBanners?: JsonNullValueInput | InputJsonValue
+    announcementBanners?: JsonNullValueInput | InputJsonValue
+    googleClientId?: string | null
     updatedAt?: Date | string
   }
 
@@ -43265,6 +43333,10 @@ export namespace Prisma {
     customDomain?: string | null
     shippingSettings?: JsonNullValueInput | InputJsonValue
     cashOnDeliveryEnabled?: boolean
+    paymentMethods?: JsonNullValueInput | InputJsonValue
+    promotionalBanners?: JsonNullValueInput | InputJsonValue
+    announcementBanners?: JsonNullValueInput | InputJsonValue
+    googleClientId?: string | null
     updatedAt?: Date | string
   }
 
@@ -43287,6 +43359,10 @@ export namespace Prisma {
     customDomain?: NullableStringFieldUpdateOperationsInput | string | null
     shippingSettings?: JsonNullValueInput | InputJsonValue
     cashOnDeliveryEnabled?: BoolFieldUpdateOperationsInput | boolean
+    paymentMethods?: JsonNullValueInput | InputJsonValue
+    promotionalBanners?: JsonNullValueInput | InputJsonValue
+    announcementBanners?: JsonNullValueInput | InputJsonValue
+    googleClientId?: NullableStringFieldUpdateOperationsInput | string | null
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
@@ -43309,6 +43385,10 @@ export namespace Prisma {
     customDomain?: NullableStringFieldUpdateOperationsInput | string | null
     shippingSettings?: JsonNullValueInput | InputJsonValue
     cashOnDeliveryEnabled?: BoolFieldUpdateOperationsInput | boolean
+    paymentMethods?: JsonNullValueInput | InputJsonValue
+    promotionalBanners?: JsonNullValueInput | InputJsonValue
+    announcementBanners?: JsonNullValueInput | InputJsonValue
+    googleClientId?: NullableStringFieldUpdateOperationsInput | string | null
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
@@ -43331,6 +43411,10 @@ export namespace Prisma {
     customDomain?: string | null
     shippingSettings?: JsonNullValueInput | InputJsonValue
     cashOnDeliveryEnabled?: boolean
+    paymentMethods?: JsonNullValueInput | InputJsonValue
+    promotionalBanners?: JsonNullValueInput | InputJsonValue
+    announcementBanners?: JsonNullValueInput | InputJsonValue
+    googleClientId?: string | null
     updatedAt?: Date | string
   }
 
@@ -43353,6 +43437,10 @@ export namespace Prisma {
     customDomain?: NullableStringFieldUpdateOperationsInput | string | null
     shippingSettings?: JsonNullValueInput | InputJsonValue
     cashOnDeliveryEnabled?: BoolFieldUpdateOperationsInput | boolean
+    paymentMethods?: JsonNullValueInput | InputJsonValue
+    promotionalBanners?: JsonNullValueInput | InputJsonValue
+    announcementBanners?: JsonNullValueInput | InputJsonValue
+    googleClientId?: NullableStringFieldUpdateOperationsInput | string | null
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
@@ -43375,6 +43463,10 @@ export namespace Prisma {
     customDomain?: NullableStringFieldUpdateOperationsInput | string | null
     shippingSettings?: JsonNullValueInput | InputJsonValue
     cashOnDeliveryEnabled?: BoolFieldUpdateOperationsInput | boolean
+    paymentMethods?: JsonNullValueInput | InputJsonValue
+    promotionalBanners?: JsonNullValueInput | InputJsonValue
+    announcementBanners?: JsonNullValueInput | InputJsonValue
+    googleClientId?: NullableStringFieldUpdateOperationsInput | string | null
     updatedAt?: DateTimeFieldUpdateOperationsInput | Date | string
   }
 
@@ -45338,6 +45430,10 @@ export namespace Prisma {
     customDomain?: SortOrder
     shippingSettings?: SortOrder
     cashOnDeliveryEnabled?: SortOrder
+    paymentMethods?: SortOrder
+    promotionalBanners?: SortOrder
+    announcementBanners?: SortOrder
+    googleClientId?: SortOrder
     updatedAt?: SortOrder
   }
 
@@ -45363,6 +45459,7 @@ export namespace Prisma {
     featuredStoreCost?: SortOrder
     customDomain?: SortOrder
     cashOnDeliveryEnabled?: SortOrder
+    googleClientId?: SortOrder
     updatedAt?: SortOrder
   }
 
@@ -45382,6 +45479,7 @@ export namespace Prisma {
     featuredStoreCost?: SortOrder
     customDomain?: SortOrder
     cashOnDeliveryEnabled?: SortOrder
+    googleClientId?: SortOrder
     updatedAt?: SortOrder
   }
 

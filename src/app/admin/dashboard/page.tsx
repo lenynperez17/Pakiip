@@ -1,6 +1,8 @@
 
 "use client";
 
+export const dynamic = 'force-dynamic';
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Truck, Store, DollarSign, ListOrdered, HandHeart, BarChartHorizontal, Map, LayoutGrid, Users, Scale, Settings } from "lucide-react";
 import { useAppData } from "@/hooks/use-app-data";

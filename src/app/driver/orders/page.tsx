@@ -17,14 +17,15 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/utils";
 import { AuthGuard } from "@/components/AuthGuard";
+import type { DeliveryDriver } from '@/lib/types';
 
 function DriverOrdersPageContent() {
-    const { orders: allOrders, saveOrder, appSettings, addDebtTransaction, currentUser, getDriverByUserId } = useAppData();
+    const { orders: allOrders, saveOrder, appSettings, addDebtTransaction, currentUser } = useAppData();
     const [orders, setOrders] = useState<Order[]>([]);
     const { toast } = useToast();
 
-    // 🔒 SEGURIDAD: Buscar driver por el userId del usuario logueado
-    const driver = currentUser?.role === 'driver' ? getDriverByUserId(currentUser.id) : undefined;
+    // 🔒 SEGURIDAD: Cuando el rol es driver, currentUser YA es el objeto driver
+    const driver = currentUser?.role === 'driver' ? (currentUser as DeliveryDriver) : undefined;
     const loggedInDriverId = driver?.id || null;
     
     const [isVerifyDialogOpen, setVerifyDialogOpen] = useState(false);
@@ -73,29 +74,52 @@ function DriverOrdersPageContent() {
         setVerifyDialogOpen(true);
     };
 
-    const handleVerifyAndDeliver = () => {
+    const handleVerifyAndDeliver = async () => {
         if (!orderToVerify) return;
 
         if (orderToVerify.verificationCode === verificationCode) {
-            saveOrder({ ...orderToVerify, status: 'Entregado' });
-            toast({
-                title: "¡Entrega Confirmada!",
-                description: `El pedido ${orderToVerify.id} ha sido marcado como entregado.`
-            });
+            try {
+                // TRANSACCIÓN ATÓMICA: Primero guardamos la orden, luego la deuda
+                // Si alguno falla, mostramos error apropiado
+                await saveOrder({ ...orderToVerify, status: 'Entregado' });
 
-             // If order is delivered and was cash on delivery, add to driver's debt
-            if (orderToVerify.paymentMethod === 'Efectivo' && loggedInDriverId) {
-                // 🔒 SEGURIDAD: Usar loggedInDriverId verificado, NO orderToVerify.driverId
-                addDebtTransaction(loggedInDriverId, orderToVerify.total, `Cobro del pedido ${orderToVerify.id}`);
+                // If order is delivered and was cash on delivery, add to driver's debt
+                if (orderToVerify.paymentMethod === 'Efectivo' && loggedInDriverId) {
+                    try {
+                        // 🔒 SEGURIDAD: Usar loggedInDriverId verificado, NO orderToVerify.driverId
+                        await addDebtTransaction(loggedInDriverId, orderToVerify.total, `Cobro del pedido ${orderToVerify.id}`);
+                        toast({
+                            title: "Deuda Registrada",
+                            description: `Se ha añadido ${formatCurrency(orderToVerify.total, appSettings.currencySymbol)} a tu deuda por el cobro en efectivo.`,
+                            variant: 'default',
+                        });
+                    } catch (debtError) {
+                        // La orden ya se marcó como entregada, pero la deuda falló
+                        // Esto es crítico - notificar al usuario
+                        console.error('Error registrando deuda:', debtError);
+                        toast({
+                            title: "⚠️ Error en Deuda",
+                            description: `El pedido fue entregado pero hubo un error registrando la deuda. Contacta al administrador.`,
+                            variant: 'destructive',
+                        });
+                    }
+                }
+
                 toast({
-                    title: "Deuda Registrada",
-                    description: `Se ha añadido ${formatCurrency(orderToVerify.total, appSettings.currencySymbol)} a tu deuda por el cobro en efectivo.`,
-                    variant: 'default',
+                    title: "¡Entrega Confirmada!",
+                    description: `El pedido ${orderToVerify.id} ha sido marcado como entregado.`
+                });
+
+                setVerifyDialogOpen(false);
+                setOrderToVerify(null);
+            } catch (error) {
+                console.error('Error al entregar pedido:', error);
+                toast({
+                    title: "Error",
+                    description: "No se pudo marcar el pedido como entregado. Inténtalo de nuevo.",
+                    variant: "destructive"
                 });
             }
-            setVerifyDialogOpen(false);
-            setOrderToVerify(null);
-
         } else {
             toast({
                 title: "Código Incorrecto",

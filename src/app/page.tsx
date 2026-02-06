@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { useAppData } from '@/hooks/use-app-data';
 import { VendorCard } from '@/components/VendorCard';
 import { Button } from '@/components/ui/button';
-import { MapPin, Search, HandHeart, Sparkles, Loader2 } from "lucide-react";
+import { MapPin, Search, HandHeart, Sparkles, Loader2, RefreshCw } from "lucide-react";
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Carousel, CarouselContent, CarouselItem } from '@/components/ui/carousel';
@@ -18,66 +18,61 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { filterVendorsByDistance } from '@/lib/distance-calculator';
 
 export default function Home() {
-  const { vendors, categories, appSettings, getVendorById, selectedCity, cities, getAllProducts } = useAppData();
+  const {
+    vendors,
+    categories,
+    appSettings,
+    getVendorById,
+    selectedCity,
+    cities,
+    getAllProducts,
+    // Ubicación compartida del contexto
+    userLocation,
+    isLoadingLocation,
+    locationError,
+    refreshLocation
+  } = useAppData();
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredVendors, setFilteredVendors] = useState(vendors);
-  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
-  const [isLoadingLocation, setIsLoadingLocation] = useState(true);
   const [maxDistanceKm] = useState(20); // Radio de búsqueda: 20km
-
-
-  // Obtener ubicación del usuario al cargar la página
-  useEffect(() => {
-    if ('geolocation' in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setUserLocation({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          });
-          setIsLoadingLocation(false);
-        },
-        (error) => {
-          setUserLocation(null);
-          setIsLoadingLocation(false);
-          // Sin ubicación, mostrar todas las tiendas
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 300000
-        }
-      );
-    } else {
-      setUserLocation(null);
-      setIsLoadingLocation(false);
-    }
-  }, []);
+  const [showingAllVendors, setShowingAllVendors] = useState(false);
 
   // Filtrar vendors por ubicación y búsqueda
   useEffect(() => {
     // Vendedores activos
     const activeVendors = vendors.filter(v => v.status === 'Activo');
 
-    // Si tenemos ubicación del usuario, filtrar por distancia
-    let locationFiltered = activeVendors;
+    // Si tenemos ubicación, filtrar por distancia
     if (userLocation) {
-      locationFiltered = filterVendorsByDistance(
+      const locationFiltered = filterVendorsByDistance(
         activeVendors,
-        userLocation.lat,
-        userLocation.lng,
+        userLocation.latitude,
+        userLocation.longitude,
         maxDistanceKm
       );
+
+      // Filtrar por búsqueda
+      const searchFiltered = locationFiltered.filter(vendor =>
+        vendor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        vendor.category.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+
+      setFilteredVendors(searchFiltered);
+      setShowingAllVendors(false);
+    } else if (!isLoadingLocation) {
+      // Sin ubicación y ya terminó de cargar: mostrar todas las tiendas como fallback
+      const searchFiltered = activeVendors.filter(vendor =>
+        vendor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        vendor.category.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      setFilteredVendors(searchFiltered);
+      setShowingAllVendors(true);
+    } else {
+      // Cargando ubicación: mostrar array vacío temporalmente
+      setFilteredVendors([]);
+      setShowingAllVendors(false);
     }
-
-    // Filtrar por búsqueda
-    const searchFiltered = locationFiltered.filter(vendor =>
-      vendor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      vendor.category.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
-    setFilteredVendors(searchFiltered);
-  }, [vendors, searchTerm, userLocation, maxDistanceKm]);
+  }, [vendors, searchTerm, userLocation, isLoadingLocation, maxDistanceKm]);
 
 
   const featuredVendors = filteredVendors.filter(v => v.isFeatured);
@@ -216,20 +211,40 @@ export default function Home() {
             <section aria-label="Listado de tiendas">
                 <div className="flex flex-col md:flex-row items-center justify-between mb-4 sm:mb-6 gap-3 sm:gap-4">
                     <h2 className="text-base sm:text-lg font-bold font-headline">
-                        {searchTerm ? `Resultados para "${searchTerm}"` : "Todas las Tiendas"}
+                        {searchTerm ? `Resultados para "${searchTerm}"` :
+                         showingAllVendors ? "Todas las Tiendas Disponibles" :
+                         "Tiendas Cercanas"}
                     </h2>
                     {!searchTerm && filteredVendors.length > 0 && (
                       <p className="text-xs sm:text-sm text-muted-foreground">
                         {filteredVendors.length} {filteredVendors.length === 1 ? 'tienda' : 'tiendas'}
+                        {userLocation && !showingAllVendors && ` a menos de ${maxDistanceKm}km`}
                       </p>
                     )}
                 </div>
+
+                {/* Mensaje sutil cuando no hay ubicación - no intrusivo */}
+                {showingAllVendors && !isLoadingLocation && (
+                  <p className="text-xs text-muted-foreground mb-3 flex items-center gap-1.5">
+                    <MapPin className="h-3 w-3" />
+                    Mostrando todas las tiendas.
+                    <button
+                      onClick={() => refreshLocation()}
+                      className="text-primary hover:underline"
+                    >
+                      Activar GPS
+                    </button>
+                  </p>
+                )}
 
                 {isLoadingLocation ? (
                 <div className="flex flex-col items-center justify-center py-12 sm:py-16 space-y-4">
                   <Loader2 className="h-8 w-8 sm:h-10 sm:w-10 animate-spin text-primary" />
                   <p className="text-sm sm:text-base text-muted-foreground">
-                    Buscando tiendas cercanas a tu ubicación...
+                    Obteniendo tu ubicación...
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Esto puede tomar unos segundos
                   </p>
                 </div>
                 ) : filteredVendors.length > 0 ? (
@@ -251,20 +266,24 @@ export default function Home() {
                         No hay tiendas cerca de tu ubicación
                       </p>
                       <p className="text-sm sm:text-base text-muted-foreground">
-                        ¡Estamos trabajando para abrir más tiendas en tu zona! 🚀
+                        Estamos trabajando para abrir más tiendas en tu zona
                       </p>
                       <p className="text-xs sm:text-sm text-muted-foreground mt-4">
                         Radio de búsqueda: {maxDistanceKm} km
                       </p>
                     </div>
                   ) : (
-                    <div className="space-y-2">
+                    <div className="space-y-4">
                       <p className="text-base sm:text-lg font-semibold">
-                        Activa tu ubicación
+                        No hay tiendas disponibles
                       </p>
-                      <p className="text-sm sm:text-base text-muted-foreground">
-                        Para ver las tiendas cercanas, activa la geolocalización en tu navegador
-                      </p>
+                      <Button
+                        onClick={() => refreshLocation()}
+                        className="gap-2"
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                        Obtener mi ubicación
+                      </Button>
                     </div>
                   )}
                 </div>

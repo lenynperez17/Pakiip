@@ -131,6 +131,7 @@ model UserRoleAssignment {
 model UserSettings {
   userId       String   @id @map("user_id")
   selectedRole UserRole @default(customer) @map("selected_role")
+  selectedCity String?  @map("selected_city")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)

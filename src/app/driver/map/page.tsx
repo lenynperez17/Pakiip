@@ -4,17 +4,18 @@
 import { useState, useEffect } from 'react';
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import type { Order, Vendor } from '@/lib/placeholder-data';
+import type { DeliveryDriver } from '@/lib/types';
 import { useAppData } from '@/hooks/use-app-data';
 import { DeliveryMap, DeliveryPoint } from '@/components/DeliveryMap';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AuthGuard } from "@/components/AuthGuard";
 
 function GeneralDriverMapPageContent() {
-    const { orders, vendors, currentUser, getDriverByUserId } = useAppData();
+    const { orders, vendors, currentUser } = useAppData();
     const [deliveryPoints, setDeliveryPoints] = useState<DeliveryPoint[]>([]);
 
-    // 🔒 SEGURIDAD: Buscar driver por el userId del usuario logueado
-    const driver = currentUser?.role === 'driver' ? getDriverByUserId(currentUser.id) : undefined;
+    // 🔒 SEGURIDAD: Cuando el rol es driver, currentUser YA es el objeto driver
+    const driver = currentUser?.role === 'driver' ? (currentUser as DeliveryDriver) : undefined;
 
     useEffect(() => {
         const activeOrders = orders.filter(o =>

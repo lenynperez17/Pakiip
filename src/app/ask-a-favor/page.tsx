@@ -21,6 +21,7 @@ import { useRouter } from 'next/navigation';
 import { AuthGuard } from '@/components/AuthGuard';
 import { AddressAutocomplete } from '@/components/AddressAutocomplete';
 import { GeocodeResult, reverseGeocode } from '@/lib/google-geocoding';
+import { uploadImageFromBase64 } from '@/lib/upload';
 
 const favorSchema = z.object({
   description: z.string().min(10, "Por favor, describe tu favor con más detalle."),
@@ -62,6 +63,7 @@ function AskAFavorPageContent() {
   
   const [pickupAddress, setPickupAddress] = useState<string | null>(null);
   const [deliveryAddress, setDeliveryAddress] = useState<string | null>(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
 
   const form = useForm<FavorFormValues>({
@@ -90,6 +92,11 @@ function AskAFavorPageContent() {
 
   const handleAllowLocation = (locationType: 'pickupLocation' | 'deliveryLocation') => {
     if (navigator.geolocation) {
+        toast({
+            title: "Obteniendo ubicación...",
+            description: "Esperando señal GPS de alta precisión.",
+        });
+
         navigator.geolocation.getCurrentPosition(
             (position) => {
                 const userLocation: Coordinate = {
@@ -112,12 +119,25 @@ function AskAFavorPageContent() {
                     });
                 });
             },
-            () => {
+            (error) => {
+                let errorMessage = "No se pudo obtener tu ubicación.";
+                if (error.code === error.PERMISSION_DENIED) {
+                    errorMessage = "Permisos de ubicación denegados. Habilita el GPS.";
+                } else if (error.code === error.POSITION_UNAVAILABLE) {
+                    errorMessage = "GPS no disponible. Activa el GPS de tu dispositivo.";
+                } else if (error.code === error.TIMEOUT) {
+                    errorMessage = "Tiempo de espera agotado. Intenta en un lugar con mejor señal.";
+                }
                 toast({
                     title: "Error de Ubicación",
-                    description: "No se pudo obtener tu ubicación. Asegúrate de haber concedido los permisos en tu navegador.",
+                    description: errorMessage,
                     variant: "destructive",
                 });
+            },
+            {
+                enableHighAccuracy: true, // GPS real, la más precisa posible
+                timeout: 60000, // 60 segundos
+                maximumAge: 0, // siempre ubicación ACTUAL, nunca cacheada
             }
         );
     } else {
@@ -146,16 +166,38 @@ function AskAFavorPageContent() {
         distanceKm: distance,
         photoDataUri: data.photoDataUri,
       });
-      
+
+      // Subir foto al servidor si existe (evita guardar base64 en BD)
+      let photoUrl: string | undefined = undefined;
+      if (data.photoDataUri && data.photoDataUri.startsWith('data:')) {
+        setIsUploadingPhoto(true);
+        const uploadResult = await uploadImageFromBase64(
+          data.photoDataUri,
+          'favors'
+        );
+        setIsUploadingPhoto(false);
+
+        if (uploadResult.success && uploadResult.url) {
+          photoUrl = uploadResult.url;
+        } else {
+          toast({
+            title: "Error al subir foto",
+            description: "No se pudo subir la imagen. El favor se enviará sin foto.",
+            variant: "destructive",
+          });
+        }
+      }
+
       const newFavor: Omit<Favor, 'id' | 'date'> = {
           userName: currentUser?.name || 'Invitado',
           pickupAddress: data.pickupAddress || 'Ubicación en mapa',
           deliveryAddress: data.deliveryAddress || 'Ubicación en mapa',
           ...data,
+          photoDataUri: photoUrl, // Guardar URL en lugar de base64
           quote: result,
           status: 'Pendiente',
       }
-      
+
       addFavor(newFavor);
       setQuote(result);
       setIsSubmitted(true);
@@ -173,6 +215,7 @@ function AskAFavorPageContent() {
       });
     } finally {
       setIsLoading(false);
+      setIsUploadingPhoto(false);
     }
   }
 
@@ -396,9 +439,9 @@ function AskAFavorPageContent() {
                </div>
 
               <div className="flex justify-center pt-2 sm:pt-4">
-                <Button type="submit" size="lg" disabled={isLoading} className="w-full sm:w-auto h-10 sm:h-11 text-sm sm:text-base">
-                  {isLoading ? (
-                    <><Loader2 className="mr-1.5 sm:mr-2 h-4 w-4 sm:h-5 sm:w-5 animate-spin" /> Calculando y Enviando...</>
+                <Button type="submit" size="lg" disabled={isLoading || isUploadingPhoto} className="w-full sm:w-auto h-10 sm:h-11 text-sm sm:text-base">
+                  {isLoading || isUploadingPhoto ? (
+                    <><Loader2 className="mr-1.5 sm:mr-2 h-4 w-4 sm:h-5 sm:w-5 animate-spin" /> {isUploadingPhoto ? 'Subiendo foto...' : 'Calculando y Enviando...'}</>
                   ) : (
                     <><Sparkles className="mr-1.5 sm:mr-2 h-4 w-4 sm:h-5 sm:w-5" /> Cotizar y Enviar Favor</>
                   )}

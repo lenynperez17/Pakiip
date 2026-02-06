@@ -2,6 +2,8 @@
 
 "use client";
 
+export const dynamic = 'force-dynamic';
+
 import React, { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -58,9 +60,13 @@ function AdminStoresPageContent() {
     }
   }, [vendors, toast]);
 
-  // Estados para dirección y coordenadas
+  // Estados para dirección y coordenadas (crear)
   const [addAddress, setAddAddress] = useState<string>("");
   const [addCoordinates, setAddCoordinates] = useState<{ lat: number; lng: number } | null>(null);
+
+  // Estados para dirección y coordenadas (editar)
+  const [editAddress, setEditAddress] = useState<string>("");
+  const [editCoordinates, setEditCoordinates] = useState<{ lat: number; lng: number } | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, setPreview: React.Dispatch<React.SetStateAction<string | null>>) => {
     const file = e.target.files?.[0];
@@ -77,6 +83,17 @@ function AdminStoresPageContent() {
 
   const handleAddVendor = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    // Validar que las coordenadas sean válidas (no 0,0 que es un punto en el océano)
+    if (!addCoordinates || (addCoordinates.lat === 0 && addCoordinates.lng === 0)) {
+        toast({
+            variant: 'destructive',
+            title: 'Ubicación Requerida',
+            description: 'Por favor, selecciona una ubicación válida en el mapa.'
+        });
+        return;
+    }
+
     const formData = new FormData(event.currentTarget);
     const newVendor: Vendor = {
         id: '', // Dejar vacío para que Prisma genere un ID real
@@ -95,7 +112,7 @@ function AdminStoresPageContent() {
         status: 'Activo',
         address: addAddress,
         dni: '',
-        coordinates: addCoordinates || { lat: 0, lng: 0 } // Usa coordenadas reales de Google Maps
+        coordinates: addCoordinates
     };
     saveVendor(newVendor);
     setAddDialogOpen(false);
@@ -110,6 +127,9 @@ function AdminStoresPageContent() {
     setEditingVendor(vendor);
     setEditLogoPreview(vendor.imageUrl);
     setEditBannerPreview(vendor.bannerUrl || null);
+    // Inicializar address y coordinates para edición
+    setEditAddress(vendor.address || "");
+    setEditCoordinates(vendor.coordinates || null);
     setEditDialogOpen(true);
   };
 
@@ -128,14 +148,19 @@ function AdminStoresPageContent() {
         location: formData.get('location') as string,
         isFeatured: formData.get('isFeatured') === 'on',
         status: formData.get('status') as Vendor['status'],
-        commissionRate: parseFloat(formData.get('commissionRate') as string),
+        commissionRate: parseFloat(formData.get('commissionRate') as string) || editingVendor.commissionRate,
         imageUrl: editLogoPreview || editingVendor.imageUrl,
         bannerUrl: editBannerPreview || editingVendor.bannerUrl,
+        // CORREGIDO: Incluir address y coordinates en la edición
+        address: editAddress || editingVendor.address,
+        coordinates: editCoordinates || editingVendor.coordinates,
     };
-    
+
     saveVendor(updatedVendor);
     setEditDialogOpen(false);
     setEditingVendor(null);
+    setEditAddress("");
+    setEditCoordinates(null);
     toast({ title: "Tienda Actualizada", description: `${updatedVendor.name} ha sido actualizada.` });
   };
 

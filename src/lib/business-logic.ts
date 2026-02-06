@@ -130,33 +130,25 @@ export function calculateCartTotals(
 
     let shipping = 0;
 
-    if (customerLocation && selectedCity) {
-        // Find if the customer location is inside a defined delivery zone for the selected city
-        const cityZones = deliveryZones.filter(z => z.cityId === selectedCity.id);
+    // Solo calcular si hay ubicación del cliente
+    if (customerLocation) {
+        // Primero intentar buscar en zonas de delivery definidas (si hay ciudad seleccionada)
         let zoneFound = false;
-
-        for (const zone of cityZones) {
-            if (isPointInPolygon(customerLocation, zone.path)) {
-                shipping = zone.shippingFee;
-                zoneFound = true;
-                break;
+        if (selectedCity) {
+            const cityZones = deliveryZones.filter(z => z.cityId === selectedCity.id);
+            for (const zone of cityZones) {
+                if (isPointInPolygon(customerLocation, zone.path)) {
+                    shipping = zone.shippingFee;
+                    zoneFound = true;
+                    break;
+                }
             }
         }
 
-        // If not in a defined zone, fall back to distance-based calculation
+        // Si no se encontró zona, calcular por distancia
         if (!zoneFound) {
-            // Debug: mostrar configuración de shipping
-            console.log('[Shipping Debug] settings.shipping:', settings?.shipping);
-            console.log('[Shipping Debug] customerLocation:', customerLocation);
-
             const vendorIdsInCart = Object.keys(itemsByVendor);
             const vendorsInCart = (vendors || []).filter(v => vendorIdsInCart.includes(v.id));
-
-            console.log('[Shipping Debug] Vendors in cart:', vendorsInCart.map(v => ({
-                id: v.id,
-                name: v.name,
-                coordinates: v.coordinates
-            })));
 
             let maxDistance = 0;
             for (const vendor of vendorsInCart) {
@@ -168,24 +160,17 @@ export function calculateCartTotals(
                         customerLocation.lat,
                         customerLocation.lng
                     );
-                    console.log(`[Shipping Debug] Distance to ${vendor.name}: ${distance.toFixed(2)} km`);
                     if (distance > maxDistance) {
                         maxDistance = distance;
                     }
-                } else {
-                    console.log(`[Shipping Debug] Vendor ${vendor.name} has no valid coordinates`);
                 }
             }
-
-            console.log('[Shipping Debug] Max distance:', maxDistance);
 
             // Usar valores por defecto si no hay configuración
             const shippingConfig = settings?.shipping || {};
             const baseRadiusKm = shippingConfig.baseRadiusKm ?? 3;
             const baseFee = shippingConfig.baseFee ?? 5;
             const feePerKm = shippingConfig.feePerKm ?? 1.5;
-
-            console.log('[Shipping Debug] Config:', { baseRadiusKm, baseFee, feePerKm });
 
             if (maxDistance > 0) {
                 if (maxDistance <= baseRadiusKm) {
@@ -198,8 +183,6 @@ export function calculateCartTotals(
                 // Si no hay distancia válida, usar tarifa base
                 shipping = baseFee;
             }
-
-            console.log('[Shipping Debug] Calculated shipping:', shipping);
         }
     }
     

@@ -24,7 +24,7 @@ export function GoogleMapsProvider({ children }: { children: React.ReactNode }) 
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!,
     libraries,
     language: 'es',
-    region: 'US'
+    region: 'PE'
   });
 
   if (loadError) {

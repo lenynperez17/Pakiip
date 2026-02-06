@@ -9,23 +9,23 @@ import { Badge } from "@/components/ui/badge";
 import { DollarSign, ShoppingCart, Users, Activity, TrendingUp, Wallet, Banknote } from "lucide-react";
 import { useAppData } from "@/hooks/use-app-data";
 import { Order } from '@/lib/placeholder-data';
+import type { Vendor } from "@/lib/types";
 import React from 'react';
 import { formatCurrency } from "@/lib/utils";
 import { calculateVendorMetrics } from '@/lib/business-logic';
 import { AuthGuard } from "@/components/AuthGuard";
 
 function VendorSalesContent() {
-    const { orders, appSettings: settings, getVendorByOwnerId, getVendorById, currentUser } = useAppData();
+    const { orders, appSettings: settings, vendors, currentUser } = useAppData();
     const searchParams = useSearchParams();
 
     // Admin puede acceder con ?vendorId=xxx, vendor usa su propio ID
     const vendorIdFromUrl = searchParams.get('vendorId');
-    const isAdmin = currentUser?.role === 'admin';
 
-    // Buscar vendor: si es admin con vendorId en URL, buscar por ID; si es vendor, buscar por ownerId
-    const vendor = vendorIdFromUrl && isAdmin
-        ? getVendorById(vendorIdFromUrl)
-        : (currentUser?.role === 'vendor' ? getVendorByOwnerId(currentUser.id) : undefined);
+    // 🔒 SEGURIDAD: Cuando el rol es vendor, currentUser YA es el objeto vendor
+    const vendor = vendorIdFromUrl
+        ? vendors.find(v => v.id === vendorIdFromUrl)
+        : (currentUser?.role === 'vendor' ? (currentUser as Vendor) : undefined);
     
     const {
         vendorOrders,

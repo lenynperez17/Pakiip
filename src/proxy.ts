@@ -7,6 +7,16 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 
+// ============================================================
+// 🔴 MODO MANTENIMIENTO - CAMBIAR A false CUANDO EL CLIENTE PAGUE
+// ============================================================
+const MAINTENANCE_MODE = false;
+
+// Clave secreta para acceder al sitio en modo mantenimiento
+// Uso: pakiip.com?bypass=NynelMkt2026
+const MAINTENANCE_BYPASS_KEY = "NynelMkt2026";
+// ============================================================
+
 // Rutas que requieren autenticacion
 const protectedRoutes = [
   "/admin",
@@ -63,7 +73,52 @@ const roleRoutes: Record<string, string[]> = {
 };
 
 export async function proxy(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  const { pathname, searchParams } = request.nextUrl;
+
+  // ============================================================
+  // MODO MANTENIMIENTO - Interceptar TODAS las peticiones
+  // ============================================================
+  if (MAINTENANCE_MODE) {
+    // Permitir recursos estaticos y API
+    if (
+      pathname.startsWith("/_next") ||
+      pathname.startsWith("/static") ||
+      pathname.startsWith("/api") ||
+      pathname.includes(".") // Archivos con extension (favicon, imagenes, etc)
+    ) {
+      return NextResponse.next();
+    }
+
+    // Permitir la pagina de mantenimiento
+    if (pathname === "/mantenimiento") {
+      return NextResponse.next();
+    }
+
+    // Verificar si tiene la clave de bypass en la URL o en cookies
+    const bypassParam = searchParams.get("bypass");
+    const bypassCookie = request.cookies.get("maintenance_bypass")?.value;
+
+    if (bypassParam === MAINTENANCE_BYPASS_KEY) {
+      // Establecer cookie para no tener que poner el bypass cada vez
+      const response = NextResponse.redirect(new URL(pathname, request.url));
+      response.cookies.set("maintenance_bypass", MAINTENANCE_BYPASS_KEY, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 60 * 60 * 24, // 24 horas
+      });
+      return response;
+    }
+
+    if (bypassCookie === MAINTENANCE_BYPASS_KEY) {
+      // Tiene la cookie de bypass, permitir acceso normal
+      // Continuar con el flujo normal del middleware
+    } else {
+      // Redirigir a pagina de mantenimiento
+      return NextResponse.redirect(new URL("/mantenimiento", request.url));
+    }
+  }
+  // ============================================================
 
   // Ignorar rutas de API, recursos estaticos y paginas de login
   if (

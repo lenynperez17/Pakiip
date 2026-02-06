@@ -119,7 +119,11 @@ const emptyAppData: AppData = {
       },
       cashOnDeliveryEnabled: true,
     },
-    shipping: {},
+    shipping: {
+      baseRadiusKm: 3,
+      baseFee: 5.00,
+      feePerKm: 1.50,
+    },
     promotionalBanners: [],
     announcementBanners: [],
   },
@@ -214,10 +218,7 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
 
     // Guardar en backend si hay usuario autenticado
     if (currentUser) {
-      const result = await saveUserSettingsToBackend(currentUser.id, { selectedCity: cityName });
-      if (!result.success) {
-        console.error('Error guardando ciudad:', result.error);
-      }
+      await saveUserSettingsToBackend(currentUser.id, { selectedCity: cityName });
     }
   };
 
@@ -311,24 +312,19 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
     }
 
     // PASO 1: Intentar con baja precisión primero (WiFi/celular) - más rápido
-    console.log('[GPS] Paso 1: Intentando ubicación rápida (WiFi/celular)...');
     try {
       const position = await getPositionWithOptions(false, 8000);
-      console.log(`[GPS] Ubicación rápida obtenida: precisión ${Math.round(position.coords.accuracy)}m`);
       return await positionToUserLocation(position);
-    } catch (error1) {
-      console.log('[GPS] Ubicación rápida falló, intentando GPS de alta precisión...');
+    } catch {
+      // Ubicación rápida falló, intentando GPS de alta precisión
     }
 
     // PASO 2: Si falla, intentar con alta precisión (GPS real)
-    console.log('[GPS] Paso 2: Intentando GPS de alta precisión...');
     try {
       const position = await getPositionWithOptions(true, 15000);
-      console.log(`[GPS] GPS alta precisión obtenido: precisión ${Math.round(position.coords.accuracy)}m`);
       return await positionToUserLocation(position);
     } catch (error2) {
       const geoError = error2 as GeolocationPositionError;
-      console.log(`[GPS] Error final: ${geoError.message}`);
 
       let locationErr: LocationError;
       switch (geoError.code) {
@@ -437,7 +433,6 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
     setIsLoadingLocation(false);
 
     // NO guardamos en localStorage ni backend - solo para esta sesión
-    console.log('[LOCATION] Ubicación manual establecida (sesión):', address);
   }, []);
 
   // Limpiar ubicación manual y volver a GPS
@@ -452,7 +447,6 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
     if (isInitialized && !hasAskedLocationPermission) {
       // Usar setTimeout para no bloquear el render inicial
       const timeoutId = setTimeout(() => {
-        console.log('[LOCATION] Solicitando ubicación GPS en segundo plano...');
         requestLocation();
       }, 100); // Pequeño delay para que la página renderice primero
 
@@ -500,21 +494,10 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
       }
 
       // Cargar datos iniciales
-      console.log('[AppData] Cargando datos iniciales...');
       const result = await loadAppData(emptyAppData);
 
       if (result.success && result.data) {
         const loadedData = { ...result.data, currentUser: undefined } as AppData;
-        console.log('[AppData] Datos cargados exitosamente:');
-        console.log('[AppData] - Vendors:', loadedData.vendors?.length || 0);
-        console.log('[AppData] - Users:', loadedData.users?.length || 0);
-        console.log('[AppData] - Orders:', loadedData.orders?.length || 0);
-        console.log('[AppData] - Categories:', loadedData.categories?.length || 0);
-
-        if (loadedData.vendors?.length > 0) {
-          console.log('[AppData] - Vendor IDs:', loadedData.vendors.map(v => v.id));
-        }
-
         setData(loadedData);
 
         // Detectar ciudad automaticamente
@@ -524,7 +507,6 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
 
         setIsInitialized(true);
       } else {
-        console.error('[AppData] Error al cargar datos:', result.error);
         setIsInitialized(true);
       }
     };
@@ -706,8 +688,7 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
       await nextAuthSignOut({ redirect: false });
       setCurrentUser(null);
       setAvailableRoles([]);
-    } catch (error) {
-      console.error('Error al cerrar sesion:', error);
+    } catch {
       setCurrentUser(null);
       setAvailableRoles([]);
     }
@@ -732,7 +713,7 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ role }),
-      }).catch(err => console.error('Error guardando rol:', err));
+      }).catch(() => {});
 
       return true;
     }
@@ -765,10 +746,7 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
     });
 
     if (isInitialized) {
-      const result = await saveOrderToBackend(order);
-      if (!result.success) {
-        console.error(`Error al guardar orden ${order.id}:`, result.error);
-      }
+      await saveOrderToBackend(order);
     }
   };
 
@@ -789,10 +767,7 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
     }));
 
     if (isInitialized) {
-      const result = await saveOrderToBackend(newOrder);
-      if (!result.success) {
-        console.error(`Error al guardar orden ${newOrder.id}:`, result.error);
-      }
+      await saveOrderToBackend(newOrder);
     }
 
     return newOrder;
@@ -808,10 +783,7 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
     }));
 
     if (isInitialized) {
-      const result = await deleteOrderFromBackend(orderId);
-      if (!result.success) {
-        console.error(`Error al eliminar orden ${orderId}:`, result.error);
-      }
+      await deleteOrderFromBackend(orderId);
     }
   };
 
@@ -845,10 +817,7 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
     });
 
     if (isInitialized) {
-      const result = await saveVendorToBackend(vendor);
-      if (!result.success) {
-        console.error('Error al guardar vendor:', result.error);
-      }
+      await saveVendorToBackend(vendor);
 
       // Si se creo usuario automaticamente, guardarlo
       const userExists = (data.users || []).find(u => u.email?.toLowerCase() === vendor.email?.toLowerCase());
@@ -876,10 +845,7 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
     }));
 
     if (isInitialized) {
-      const result = await deleteVendorFromBackend(vendorId);
-      if (!result.success) {
-        console.error(`Error al eliminar vendor ${vendorId}:`, result.error);
-      }
+      await deleteVendorFromBackend(vendorId);
     }
   };
 
@@ -896,10 +862,7 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
     });
 
     if (isInitialized) {
-      const result = await saveCategoryToBackend(category);
-      if (!result.success) {
-        console.error('Error al guardar categoria:', result.error);
-      }
+      await saveCategoryToBackend(category);
     }
   };
 
@@ -910,10 +873,7 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
     }));
 
     if (isInitialized) {
-      const result = await deleteCategoryFromBackend(categoryId);
-      if (!result.success) {
-        console.error(`Error al eliminar categoria ${categoryId}:`, result.error);
-      }
+      await deleteCategoryFromBackend(categoryId);
     }
   };
 
@@ -930,10 +890,7 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
     });
 
     if (isInitialized) {
-      const result = await saveCityToBackend(city);
-      if (!result.success) {
-        console.error('Error al guardar ciudad:', result.error);
-      }
+      await saveCityToBackend(city);
     }
   };
 
@@ -944,10 +901,7 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
     }));
 
     if (isInitialized) {
-      const result = await deleteCityFromBackend(cityId);
-      if (!result.success) {
-        console.error(`Error al eliminar ciudad ${cityId}:`, result.error);
-      }
+      await deleteCityFromBackend(cityId);
     }
   };
 
@@ -964,10 +918,7 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
     });
 
     if (isInitialized) {
-      const result = await saveDeliveryZoneToBackend(zone);
-      if (!result.success) {
-        console.error('Error al guardar zona de entrega:', result.error);
-      }
+      await saveDeliveryZoneToBackend(zone);
     }
   };
 
@@ -978,10 +929,7 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
     }));
 
     if (isInitialized) {
-      const result = await deleteDeliveryZoneFromBackend(zoneId);
-      if (!result.success) {
-        console.error(`Error al eliminar zona de entrega ${zoneId}:`, result.error);
-      }
+      await deleteDeliveryZoneFromBackend(zoneId);
     }
   };
 
@@ -1015,10 +963,7 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
     });
 
     if (isInitialized) {
-      const result = await saveDriverToBackend(driver);
-      if (!result.success) {
-        console.error('Error al guardar driver:', result.error);
-      }
+      await saveDriverToBackend(driver);
 
       // Si se creo usuario automaticamente, guardarlo
       const userExists = (data.users || []).find(u => u.email?.toLowerCase() === driver.email?.toLowerCase());
@@ -1043,10 +988,7 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
     }));
 
     if (isInitialized) {
-      const result = await deleteDriverFromBackend(driverId);
-      if (!result.success) {
-        console.error(`Error al eliminar driver ${driverId}:`, result.error);
-      }
+      await deleteDriverFromBackend(driverId);
     }
   };
 
@@ -1063,10 +1005,7 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
     });
 
     if (isInitialized) {
-      const result = await saveCustomerToBackend(user);
-      if (!result.success) {
-        console.error('Error al guardar usuario:', result.error);
-      }
+      await saveCustomerToBackend(user);
     }
   };
 
@@ -1077,10 +1016,7 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
     }));
 
     if (isInitialized) {
-      const result = await deleteCustomerFromBackend(userId);
-      if (!result.success) {
-        console.error(`Error al eliminar usuario ${userId}:`, result.error);
-      }
+      await deleteCustomerFromBackend(userId);
     }
   };
 
@@ -1097,10 +1033,7 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
     });
 
     if (isInitialized) {
-      const result = await saveAdminToBackend(admin);
-      if (!result.success) {
-        console.error('Error al guardar admin:', result.error);
-      }
+      await saveAdminToBackend(admin);
     }
   };
 
@@ -1111,10 +1044,7 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
     }));
 
     if (isInitialized) {
-      const result = await deleteAdminFromBackend(adminId);
-      if (!result.success) {
-        console.error(`Error al eliminar admin ${adminId}:`, result.error);
-      }
+      await deleteAdminFromBackend(adminId);
     }
   };
 
@@ -1126,7 +1056,6 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
         setData(prevData => ({ ...prevData, appSettings: settings }));
         return true;
       } else {
-        console.error('Error al guardar configuracion:', result.error);
         return false;
       }
     }
@@ -1146,10 +1075,7 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
     }));
 
     if (isInitialized) {
-      const result = await saveMessageToBackend(message);
-      if (!result.success) {
-        console.error(`Error al guardar mensaje ${message.id}:`, result.error);
-      }
+      await saveMessageToBackend(message);
     }
   };
 

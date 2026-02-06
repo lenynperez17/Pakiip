@@ -16,24 +16,24 @@ import Image from 'next/image';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import type { VendorBankAccount } from '@/lib/placeholder-data';
+import type { Vendor } from "@/lib/types";
 import { formatCurrency } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { AuthGuard } from "@/components/AuthGuard";
 
 function VendorSettingsPageContent() {
-    const { vendors, saveVendor, appSettings, currentUser, getVendorByOwnerId, getVendorById } = useAppData();
+    const { vendors, saveVendor, appSettings, currentUser } = useAppData();
     const { toast } = useToast();
     const searchParams = useSearchParams();
 
     // Admin puede acceder con ?vendorId=xxx, vendor usa su propio ID
     const vendorIdFromUrl = searchParams.get('vendorId');
-    const isAdmin = currentUser?.role === 'admin';
 
-    // Buscar vendor: si es admin con vendorId en URL, buscar por ID; si es vendor, buscar por ownerId
-    const vendor = vendorIdFromUrl && isAdmin
-        ? getVendorById(vendorIdFromUrl)
-        : (currentUser?.role === 'vendor' ? getVendorByOwnerId(currentUser.id) : undefined);
+    // 🔒 SEGURIDAD: Cuando el rol es vendor, currentUser YA es el objeto vendor
+    const vendor = vendorIdFromUrl
+        ? vendors.find(v => v.id === vendorIdFromUrl)
+        : (currentUser?.role === 'vendor' ? (currentUser as Vendor) : undefined);
 
     const [email, setEmail] = useState(vendor?.email || '');
     const [phone, setPhone] = useState(vendor?.phone || '');

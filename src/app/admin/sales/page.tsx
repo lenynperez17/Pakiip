@@ -2,6 +2,8 @@
 
 "use client";
 
+export const dynamic = 'force-dynamic';
+
 import React from "react";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from "recharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";

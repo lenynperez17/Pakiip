@@ -89,11 +89,9 @@ function CheckoutPageContent() {
     const router = useRouter();
     const { toast } = useToast();
 
-    // Usar el hook de ubicación para obtener la ubicación ya detectada en el header
-    const { location: userLocation, isLoading: isLoadingLocation } = useLocation(cities, {
-        autoRequest: false, // No solicitar automáticamente, ya debería estar cargada
-        useIPFallback: true,
-        enableCache: true,
+    // Usar el hook de ubicación para obtener la ubicación GPS actual
+    const { location: userLocation, isLoading: isLoadingLocation, nearestCity } = useLocation(cities, {
+        autoRequest: true,
     });
 
     const loggedInUser = currentUser;
@@ -112,13 +110,14 @@ function CheckoutPageContent() {
         return 'cash'; // Por defecto efectivo
     };
 
+    // El form se inicializa vacío y se llena cuando llega la ubicación del header
     const form = useForm<CheckoutFormValues>({
         resolver: zodResolver(checkoutSchema),
         defaultValues: {
             name: loggedInUser?.name || "",
             phone: (loggedInUser as any)?.phone || "",
-            address: (loggedInUser as any)?.address || "",
-            location: (loggedInUser as any)?.coordinates,
+            address: "",
+            location: undefined,
             paymentMethod: getDefaultPaymentMethod(),
             cardNumber: "",
             expiryDate: "",
@@ -130,36 +129,31 @@ function CheckoutPageContent() {
     const paymentMethod = form.watch("paymentMethod");
     const selectedLocation = form.watch("location");
     // Detectar si ya tiene dirección pre-llenada
-    const [addressDetected, setAddressDetected] = useState(!!(loggedInUser as any)?.address);
-    // Ref para evitar re-llenar si el usuario ya editó manualmente
-    const hasAutoFilledRef = useRef(false);
+    const [addressDetected, setAddressDetected] = useState(false);
+    // Ref para evitar sobrescribir si el usuario edita manualmente
+    const isManualEditRef = useRef(false);
 
-    // Pre-llenar automáticamente con la ubicación del header (si está disponible)
+    // SOLO usar ubicación GPS actual del header - NUNCA ubicaciones guardadas
     useEffect(() => {
-        // Solo auto-llenar si:
-        // 1. Hay ubicación del hook (del header)
-        // 2. No se ha auto-llenado antes
-        // 3. No hay ubicación ya seleccionada en el form
-        if (userLocation && !hasAutoFilledRef.current && !selectedLocation) {
-            hasAutoFilledRef.current = true;
-
+        // Si hay ubicación GPS actual y no se editó manualmente
+        if (userLocation && !isManualEditRef.current) {
             const coords: Coordinate = {
                 lat: userLocation.latitude,
                 lng: userLocation.longitude,
             };
 
+            console.log('[CHECKOUT] Ubicación GPS actual:', userLocation.address);
             form.setValue('location', coords, { shouldValidate: true });
             setAddressDetected(true);
 
-            // Si ya tiene dirección del hook, usarla
             if (userLocation.address) {
                 form.setValue('address', userLocation.address, { shouldValidate: true });
             }
         }
-    }, [userLocation, selectedLocation, form]);
+    }, [userLocation, form]);
 
-    // Usar la primera ciudad disponible para calcular el envío
-    const selectedCityData = cities?.length > 0 ? cities[0] : undefined;
+    // Usar la ciudad más cercana al cliente (detectada por GPS) para las zonas de envío
+    const selectedCityData = nearestCity || undefined;
 
     const { subtotal, tax, shipping, total, additionalFees } = calculateCartTotals(cartItems, vendors, deliveryZones, selectedCityData, appSettings, selectedLocation);
     const selectedQrPayment = (appSettings?.paymentMethods?.qrPayments || []).find(p => `qr_${p.id}` === paymentMethod);
@@ -195,59 +189,71 @@ function CheckoutPageContent() {
             if (qrPayment) paymentMethodName = qrPayment.name;
         }
 
-        const newOrder = await addOrder({
-            customerId: currentUser?.id, // Asociar el pedido al usuario logueado
-            customerName: data.name,
-            customerPhone: data.phone,
-            total,
-            shippingFee: shipping,
-            items: cartItems.map(item => {
-              const vendor = getVendorById(item.product.vendorId);
-              // Si tiene variante, usar el precio de la variante
-              const itemPrice = item.options?.variant?.price ?? item.product.offerPrice ?? item.product.price;
-              return {
-                productId: item.product.id,
-                productName: item.product.name,
-                vendor: vendor?.name || 'Desconocido',
-                quantity: item.quantity,
-                price: itemPrice,
-                costPrice: item.product.costPrice,
-                options: item.options,
-                payoutStatus: 'pending',
-                // Guardar información de la variante
-                variantName: item.options?.variant?.name,
-                variantPrice: item.options?.variant?.price,
-              };
-            }),
-            paymentMethod: paymentMethodName,
-            customerAddress: data.address,
-            customerCoordinates: data.location
-        });
+        try {
+            const newOrder = await addOrder({
+                customerId: currentUser?.id, // Asociar el pedido al usuario logueado
+                customerName: data.name,
+                customerPhone: data.phone,
+                total,
+                shippingFee: shipping,
+                items: cartItems.map(item => {
+                  const vendor = getVendorById(item.product.vendorId);
+                  // Si tiene variante, usar el precio de la variante
+                  const itemPrice = item.options?.variant?.price ?? item.product.offerPrice ?? item.product.price;
+                  return {
+                    productId: item.product.id,
+                    productName: item.product.name,
+                    vendor: vendor?.name || 'Desconocido',
+                    quantity: item.quantity,
+                    price: itemPrice,
+                    costPrice: item.product.costPrice,
+                    options: item.options,
+                    payoutStatus: 'pending',
+                    // Guardar información de la variante
+                    variantName: item.options?.variant?.name,
+                    variantPrice: item.options?.variant?.price,
+                  };
+                }),
+                paymentMethod: paymentMethodName,
+                customerAddress: data.address,
+                customerCoordinates: data.location
+            });
 
-        console.log("Pedido realizado:", newOrder);
+            console.log("Pedido realizado:", newOrder);
 
-        toast({
-            title: "¡Pedido Realizado!",
-            description: `Tu pedido ha sido realizado con éxito.`,
-        });
-        
-        cartDispatch({ type: 'CLEAR_CART' });
+            // IMPORTANTE: Solo limpiar carrito si el pedido se creó exitosamente
+            cartDispatch({ type: 'CLEAR_CART' });
 
-        router.push(`/order/${newOrder.id}/receipt`);
+            toast({
+                title: "¡Pedido Realizado!",
+                description: `Tu pedido ha sido realizado con éxito.`,
+            });
+
+            router.push(`/order/${newOrder.id}/receipt`);
+        } catch (error) {
+            console.error("Error al crear pedido:", error);
+            toast({
+                title: "Error",
+                description: "No se pudo procesar tu pedido. Por favor, inténtalo de nuevo.",
+                variant: "destructive"
+            });
+            // NO limpiar carrito si hubo error
+        }
     };
 
     const handleAllowLocation = () => {
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
                 (position) => {
-                    const userLocation: Coordinate = {
+                    const manualLocation: Coordinate = {
                         lat: position.coords.latitude,
                         lng: position.coords.longitude,
                     };
-                    form.setValue('location', userLocation, { shouldValidate: true });
+                    form.setValue('location', manualLocation, { shouldValidate: true });
                     setAddressDetected(true);
-                    
-                    getAddressFromCoordinates(userLocation, (address) => {
+                    isManualEditRef.current = true; // Marcar como manual para que no se sobrescriba
+
+                    getAddressFromCoordinates(manualLocation, (address) => {
                         form.setValue('address', address, { shouldValidate: true });
                         toast({
                             title: "Ubicación y Dirección Obtenidas",

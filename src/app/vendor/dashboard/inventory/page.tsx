@@ -39,7 +39,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { MoreHorizontal, PlusCircle, Edit, Trash, Store, ArrowLeft, XCircle, DollarSign, ListPlus, Tag, Star, Ruler } from "lucide-react";
-import { Product, Vendor, DrinkOption, VendorProductCategory, ProductVariant } from "@/lib/placeholder-data";
+import { Product, DrinkOption, VendorProductCategory, ProductVariant } from "@/lib/placeholder-data";
+import type { Vendor } from "@/lib/types";
 import { useAppData } from "@/hooks/use-app-data";
 import { uploadImageFromBase64 } from "@/lib/upload";
 import {
@@ -274,35 +275,13 @@ function VendorInventoryPageContent() {
   const { toast } = useToast();
   const searchParams = useSearchParams();
 
-  // 🔒 SEGURIDAD:
-  // - Vendors: usan su propio ID (buscar por email para mayor seguridad)
-  // - Admins: pueden ver cualquier tienda con query param ?vendorId=xxx
-  const getVendorId = (): string | null => {
-    if (currentUser?.role === 'vendor') {
-      // Buscar vendor por email del usuario logueado (más seguro que por ID)
-      const vendorByEmail = vendors.find(v => v.email?.toLowerCase() === currentUser.email?.toLowerCase());
-      return vendorByEmail?.id || null;
-    }
-    if (currentUser?.role === 'admin') {
-      // Admin puede ver cualquier tienda con query param
-      const queryVendorId = searchParams.get('vendorId');
-      if (queryVendorId) {
-        return queryVendorId;
-      }
-      // Si no hay query param, mostrar el primer vendor (o null)
-      return vendors.length > 0 ? vendors[0].id : null;
-    }
-    return null;
-  };
+  // Admin puede acceder con ?vendorId=xxx
+  const vendorIdFromUrl = searchParams.get('vendorId');
 
-  const [vendor, setVendor] = useState<Vendor | undefined>(undefined);
-
-  useEffect(() => {
-    const vendorId = getVendorId();
-    if (vendorId) {
-      setVendor(vendors.find(v => v.id === vendorId));
-    }
-  }, [vendors, currentUser, searchParams]);
+  // 🔒 SEGURIDAD: Cuando el rol es vendor, currentUser YA es el objeto vendor
+  const vendor = vendorIdFromUrl
+    ? vendors.find(v => v.id === vendorIdFromUrl)
+    : (currentUser?.role === 'vendor' ? (currentUser as Vendor) : undefined);
 
 
   const [isAddProductDialogOpen, setAddProductDialogOpen] = useState(false);
@@ -356,7 +335,7 @@ function VendorInventoryPageContent() {
 
       const uploadResult = await uploadImageFromBase64(
         addProductPreview,
-        `vendors/${vendor.id}/products/${productId}.jpg`
+        `vendors/${vendor.id}/products`
       );
 
       if (uploadResult.success && uploadResult.url) {
@@ -429,7 +408,7 @@ function VendorInventoryPageContent() {
 
       const uploadResult = await uploadImageFromBase64(
         editProductPreview,
-        `vendors/${vendor.id}/products/${editingProduct.id}.jpg`
+        `vendors/${vendor.id}/products`
       );
 
       if (uploadResult.success && uploadResult.url) {
@@ -537,7 +516,7 @@ function VendorInventoryPageContent() {
 
       const uploadResult = await uploadImageFromBase64(
         editLogoPreview,
-        `vendors/${vendor.id}/logo.jpg`
+        `vendors/${vendor.id}`
       );
 
       if (uploadResult.success && uploadResult.url) {
@@ -556,7 +535,7 @@ function VendorInventoryPageContent() {
 
       const uploadResult = await uploadImageFromBase64(
         editBannerPreview,
-        `vendors/${vendor.id}/banner.jpg`
+        `vendors/${vendor.id}`
       );
 
       if (uploadResult.success && uploadResult.url) {

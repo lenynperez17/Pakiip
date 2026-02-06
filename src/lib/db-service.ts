@@ -129,11 +129,17 @@ export async function updateUser(id: string, data: Partial<User>) {
   }
 
   // Si no existe, crear usuario nuevo
+  // IMPORTANTE: El email es requerido - si no existe, lanzar error
+  const email = (data as any).email;
+  if (!email) {
+    throw new Error(`No se puede crear usuario sin email. ID: ${id}`);
+  }
+
   return prisma.user.create({
     data: {
       id,
       name: data.name || "",
-      email: (data as any).email || `${id}@pakiip.com`,
+      email: email,
       phone: data.phone,
       dni: data.dni,
       city: data.city,
@@ -1247,8 +1253,14 @@ export async function getAppSettings() {
   const promotionalBanners = (settings as any).promotionalBanners || [];
   const announcementBanners = (settings as any).announcementBanners || [];
 
-  // Parsear shippingSettings - usar mismo patrón que paymentMethods (nunca devolver null)
-  const shippingSettings = (settings as any).shippingSettings || {};
+  // Parsear shippingSettings - siempre devolver valores por defecto si estan vacios
+  const rawShippingSettings = (settings as any).shippingSettings || {};
+  const shippingSettings = {
+    baseRadiusKm: 3,
+    baseFee: 5.00,
+    feePerKm: 1.50,
+    ...rawShippingSettings
+  };
 
   return {
     appName: settings.appName,
@@ -1272,13 +1284,14 @@ export async function getAppSettings() {
     paymentMethods: paymentMethods,
     promotionalBanners: promotionalBanners,
     announcementBanners: announcementBanners,
-    // Campos legacy para compatibilidad
-    shippingSettings: shippingSettings,
     cashOnDeliveryEnabled: settings.cashOnDeliveryEnabled,
   };
 }
 
 export async function saveAppSettings(data: any) {
+  console.log("[DB-SERVICE] saveAppSettings llamado");
+  console.log("[DB-SERVICE] data.shipping recibido:", JSON.stringify(data.shipping));
+
   // Mapear campos del frontend a campos de Prisma
   const updateData: any = {};
 
@@ -1301,8 +1314,8 @@ export async function saveAppSettings(data: any) {
   if (data.googleClientId !== undefined) updateData.googleClientId = data.googleClientId;
 
   // Campos JSON complejos
+  // IMPORTANTE: Solo usar data.shipping (frontend), ignorar data.shippingSettings (legacy)
   if (data.shipping !== undefined) updateData.shippingSettings = data.shipping;
-  if (data.shippingSettings !== undefined) updateData.shippingSettings = data.shippingSettings;
   if (data.paymentMethods !== undefined) updateData.paymentMethods = data.paymentMethods;
   if (data.promotionalBanners !== undefined) updateData.promotionalBanners = data.promotionalBanners;
   if (data.announcementBanners !== undefined) updateData.announcementBanners = data.announcementBanners;
@@ -1314,11 +1327,21 @@ export async function saveAppSettings(data: any) {
     updateData.cashOnDeliveryEnabled = data.paymentMethods.cashOnDeliveryEnabled;
   }
 
-  return prisma.appSettings.upsert({
-    where: { id: 1 },
-    update: updateData,
-    create: { id: 1, ...updateData },
-  });
+  console.log("[DB-SERVICE] updateData a guardar:", JSON.stringify(updateData));
+  console.log("[DB-SERVICE] updateData.shippingSettings:", JSON.stringify(updateData.shippingSettings));
+
+  try {
+    const result = await prisma.appSettings.upsert({
+      where: { id: 1 },
+      update: updateData,
+      create: { id: 1, ...updateData },
+    });
+    console.log("[DB-SERVICE] Resultado de Prisma:", JSON.stringify(result.shippingSettings));
+    return result;
+  } catch (error) {
+    console.error("[DB-SERVICE] ERROR en Prisma:", error);
+    throw error;
+  }
 }
 
 // ============================================
@@ -1369,7 +1392,8 @@ export async function savePromotionalBanner(data: any) {
     link: bannerData.link,
     imageHint: bannerData.imageHint,
     locations: bannerData.locations || [],
-    isActive: bannerData.isActive !== false,
+    // isActive: Solo activar si explícitamente es true (evita activar accidentalmente si undefined/null)
+    isActive: bannerData.isActive === true,
   };
 
   const isTemporaryId = id && (id.startsWith('banner') || !id.startsWith('cm'));
@@ -1401,7 +1425,8 @@ export async function saveAnnouncementBanner(data: any) {
     link: bannerData.link,
     imageHint: bannerData.imageHint,
     locations: bannerData.locations || [],
-    isActive: bannerData.isActive !== false,
+    // isActive: Solo activar si explícitamente es true (evita activar accidentalmente si undefined/null)
+    isActive: bannerData.isActive === true,
   };
 
   const isTemporaryId = id && (id.startsWith('banner') || !id.startsWith('cm'));
@@ -1760,7 +1785,8 @@ export async function saveReward(data: any) {
     imageUrl: rewardData.imageUrl,
     coinsCost: rewardData.coinsCost,
     stock: rewardData.stock,
-    isActive: rewardData.isActive !== false,
+    // isActive: Solo activar si explícitamente es true (evita activar accidentalmente si undefined/null)
+    isActive: rewardData.isActive === true,
   };
 
   const isTemporaryId = id && (id.startsWith('reward') || !id.startsWith('cm'));

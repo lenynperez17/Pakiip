@@ -9,12 +9,13 @@ import { formatCurrency } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { AuthGuard } from "@/components/AuthGuard";
+import type { DeliveryDriver } from '@/lib/types';
 
 function DriverEarningsPageContent() {
-    const { orders, drivers, appSettings, currentUser, getDriverByUserId } = useAppData();
+    const { orders, drivers, appSettings, currentUser } = useAppData();
 
-    // 🔒 SEGURIDAD: Buscar driver por el userId del usuario logueado
-    const driver = currentUser?.role === 'driver' ? getDriverByUserId(currentUser.id) : undefined;
+    // 🔒 SEGURIDAD: Cuando el rol es driver, currentUser YA es el objeto driver
+    const driver = currentUser?.role === 'driver' ? (currentUser as DeliveryDriver) : undefined;
     const loggedInDriverId = driver?.id || null;
 
     if (!driver) {

@@ -13,18 +13,18 @@ import { Save, Bell, KeyRound, Landmark, User, Mail, FileText, Phone, Bike, Perc
 import { uploadImage } from '@/lib/upload';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import type { DeliveryDriver } from '@/lib/placeholder-data';
+import type { DeliveryDriver } from '@/lib/types';
 import { formatCurrency } from '@/lib/utils';
 import Image from 'next/image';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { AuthGuard } from "@/components/AuthGuard";
 
 function DriverSettingsPageContent() {
-    const { drivers, saveDriver, appSettings, currentUser, getDriverByUserId } = useAppData();
+    const { drivers, saveDriver, appSettings, currentUser } = useAppData();
     const { toast } = useToast();
 
-    // 🔒 SEGURIDAD: Buscar driver por el userId del usuario logueado
-    const driver = currentUser?.role === 'driver' ? getDriverByUserId(currentUser.id) : undefined;
+    // 🔒 SEGURIDAD: Cuando el rol es driver, currentUser YA es el objeto driver
+    const driver = currentUser?.role === 'driver' ? (currentUser as DeliveryDriver) : undefined;
 
     const [name, setName] = useState(driver?.name || '');
     const [phone, setPhone] = useState(driver?.phone || '');

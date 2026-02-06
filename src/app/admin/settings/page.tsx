@@ -2,6 +2,8 @@
 
 "use client";
 
+export const dynamic = 'force-dynamic';
+
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -53,7 +55,17 @@ const availablePermissions = [
 
 function AdminSettingsPageContent() {
   const { appSettings, saveSettings, admins, saveAdmin, deleteAdmin, cities } = useAppData();
-  const [settings, setSettings] = useState<AppSettings>(appSettings);
+
+  // Estado para controlar si ya se cargaron los datos iniciales
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  // Estado del formulario - INDEPENDIENTE del contexto después de la carga inicial
+  const [settings, setSettingsInternal] = useState<AppSettings>(appSettings);
+
+  // Wrapper para setSettings
+  const setSettings = (update: AppSettings | ((prev: AppSettings) => AppSettings)) => {
+    setSettingsInternal(update);
+  };
   const { toast } = useToast();
   const [verificationInstructions, setVerificationInstructions] = useState<VerificationInstructions | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
@@ -86,27 +98,23 @@ function AdminSettingsPageContent() {
 
 
   useEffect(() => {
-    // Valores por defecto para shipping
-    const defaultShipping = {
-      baseRadiusKm: 3,
-      baseFee: 5.00,
-      feePerKm: 1.50,
-    };
+    // Solo cargar UNA VEZ cuando appSettings tenga datos reales
+    // Después de la carga inicial, el estado local es independiente
+    const hasRealData = appSettings.appName && appSettings.appName.length > 0;
 
-    // Merge con valores por defecto
-    setSettings({
-      ...appSettings,
-      shipping: appSettings.shipping || defaultShipping,
-    });
+    if (!isLoaded && hasRealData) {
+      setSettingsInternal(appSettings);
+      setIsLoaded(true);
 
-    if (appSettings.customDomain) {
-      setVerificationInstructions({
-        type: 'TXT',
-        host: '@',
-        value: `mercado-listo-verification=${btoa(appSettings.customDomain).slice(0, 20)}`
-      });
+      if (appSettings.customDomain) {
+        setVerificationInstructions({
+          type: 'TXT',
+          host: '@',
+          value: `mercado-listo-verification=${btoa(appSettings.customDomain).slice(0, 20)}`
+        });
+      }
     }
-  }, [appSettings]);
+  }, [appSettings, isLoaded]);
   
     const handleBannerFileChange = (e: React.ChangeEvent<HTMLInputElement>, bannerId: string, type: 'promo' | 'announcement') => {
         const file = e.target.files?.[0];
@@ -221,11 +229,10 @@ function AdminSettingsPageContent() {
   
   const handleShippingChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    const defaultShipping = { baseRadiusKm: 3, baseFee: 5, feePerKm: 1.5 };
-     setSettings(prev => ({
+    // No usar defaultShipping aquí - mantener valores existentes
+    setSettings(prev => ({
         ...prev,
         shipping: {
-            ...defaultShipping,
             ...prev.shipping,
             [name]: parseFloat(value) || 0,
         }
@@ -334,11 +341,11 @@ function AdminSettingsPageContent() {
 
       // Subir cada imagen al servidor (o usar Base64 como fallback)
       const [logoUrl, heroUrl, welcomeUrl, driverWelcomeUrl, loginBgUrl] = await Promise.all([
-        uploadOrUsePreview(logoFile, logoPreview, `settings/logo_${Date.now()}.jpg`),
-        uploadOrUsePreview(heroImageFile, heroImagePreview, `settings/hero_${Date.now()}.jpg`),
-        uploadOrUsePreview(welcomeImageFile, welcomeImagePreview, `settings/welcome_${Date.now()}.jpg`),
-        uploadOrUsePreview(driverWelcomeImageFile, driverWelcomeImagePreview, `settings/driver_welcome_${Date.now()}.jpg`),
-        uploadOrUsePreview(loginBackgroundImageFile, loginBackgroundImagePreview, `settings/login_bg_${Date.now()}.jpg`)
+        uploadOrUsePreview(logoFile, logoPreview, `settings`),
+        uploadOrUsePreview(heroImageFile, heroImagePreview, `settings`),
+        uploadOrUsePreview(welcomeImageFile, welcomeImagePreview, `settings`),
+        uploadOrUsePreview(driverWelcomeImageFile, driverWelcomeImagePreview, `settings`),
+        uploadOrUsePreview(loginBackgroundImageFile, loginBackgroundImagePreview, `settings`)
       ]);
 
       // Actualizar finalSettings con las URLs del servidor
@@ -355,11 +362,20 @@ function AdminSettingsPageContent() {
       setDriverWelcomeImageFile(null);
       setLoginBackgroundImageFile(null);
 
-      saveSettings(finalSettings);
-      toast({
-        title: "Configuración Guardada",
-        description: "Los cambios se han guardado correctamente.",
-      });
+      const success = await saveSettings(finalSettings);
+      if (success) {
+        toast({
+          title: "Configuración Guardada",
+          description: "Los cambios se han guardado correctamente.",
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "No se pudo guardar la configuración. Intenta de nuevo.",
+        });
+        return;
+      }
 
       if (settings.customDomain) {
         setVerificationInstructions({
@@ -382,7 +398,7 @@ function AdminSettingsPageContent() {
     }
   };
 
-  const handleSaveBankAccount = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSaveBankAccount = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     const bankAccountData = {
@@ -401,17 +417,25 @@ function AdminSettingsPageContent() {
     }
 
     const updatedSettings = { ...appSettings, paymentMethods: { ...appSettings.paymentMethods, bankAccounts: updatedAccounts }};
-    saveSettings(updatedSettings);
+    const success = await saveSettings(updatedSettings);
     setBankAccountDialogOpen(false);
     setEditingBankAccount(null);
-    toast({ title: "Cuenta Guardada", description: "La cuenta bancaria se ha guardado correctamente." });
+    if (success) {
+      toast({ title: "Cuenta Guardada", description: "La cuenta bancaria se ha guardado correctamente." });
+    } else {
+      toast({ title: "Error", description: "No se pudo guardar la cuenta bancaria.", variant: "destructive" });
+    }
   };
 
-  const handleDeleteBankAccount = (id: string) => {
+  const handleDeleteBankAccount = async (id: string) => {
       const updatedAccounts = (appSettings.paymentMethods?.bankAccounts || []).filter(b => b.id !== id);
       const updatedSettings = { ...appSettings, paymentMethods: { ...appSettings.paymentMethods, bankAccounts: updatedAccounts }};
-      saveSettings(updatedSettings);
-      toast({ title: "Cuenta Eliminada", description: "La cuenta bancaria se ha eliminado correctamente.", variant: "destructive" });
+      const success = await saveSettings(updatedSettings);
+      if (success) {
+        toast({ title: "Cuenta Eliminada", description: "La cuenta bancaria se ha eliminado correctamente.", variant: "destructive" });
+      } else {
+        toast({ title: "Error", description: "No se pudo eliminar la cuenta.", variant: "destructive" });
+      }
   };
 
   const handleSaveQrPayment = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -464,20 +488,28 @@ function AdminSettingsPageContent() {
 
       const updatedQrPayments = [...(appSettings.paymentMethods?.qrPayments || []), newQrPayment];
       const updatedSettings = { ...appSettings, paymentMethods: { ...appSettings.paymentMethods, qrPayments: updatedQrPayments }};
-      saveSettings(updatedSettings);
+      const success = await saveSettings(updatedSettings);
 
       setQrPaymentDialogOpen(false);
       setQrImagePreview(null);
       setQrImageFile(null);
 
-      toast({ title: 'Éxito', description: 'Método de pago QR guardado correctamente.' });
+      if (success) {
+        toast({ title: 'Éxito', description: 'Método de pago QR guardado correctamente.' });
+      } else {
+        toast({ title: 'Error', description: 'No se pudo guardar el método de pago QR.', variant: 'destructive' });
+      }
   };
 
-  const handleDeleteQrPayment = (id: string) => {
+  const handleDeleteQrPayment = async (id: string) => {
       const updatedQrPayments = (appSettings.paymentMethods?.qrPayments || []).filter(p => p.id !== id);
       const updatedSettings = { ...appSettings, paymentMethods: { ...appSettings.paymentMethods, qrPayments: updatedQrPayments }};
-      saveSettings(updatedSettings);
-      toast({ title: "Pago QR Eliminado", description: "El método de pago QR se ha eliminado correctamente.", variant: "destructive" });
+      const success = await saveSettings(updatedSettings);
+      if (success) {
+        toast({ title: "Pago QR Eliminado", description: "El método de pago QR se ha eliminado correctamente.", variant: "destructive" });
+      } else {
+        toast({ title: "Error", description: "No se pudo eliminar el método de pago QR.", variant: "destructive" });
+      }
   };
 
  const renderBannerManager = (type: 'promo' | 'announcement') => {

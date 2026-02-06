@@ -5,16 +5,10 @@
 
 export { proxy as middleware } from "./src/proxy";
 
-// Configuracion del matcher para optimizar rendimiento
+// Configuracion del matcher para TODAS las rutas (modo mantenimiento)
 export const config = {
   matcher: [
-    // Rutas que necesitan verificacion
-    "/admin/:path*",
-    "/vendor/:path*",
-    "/driver/:path*",
-    "/profile/:path*",
-    "/orders/:path*",
-    "/checkout/:path*",
-    "/cart/:path*",
+    // Interceptar TODAS las rutas excepto recursos estaticos
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };

@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import type { Order, Vendor } from "@/lib/placeholder-data";
+import type { Order } from "@/lib/placeholder-data";
+import type { Vendor } from "@/lib/types";
 import { CheckCircle, MoreVertical, Package, XCircle } from "lucide-react";
 import { useAppData } from "@/hooks/use-app-data";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -16,19 +17,18 @@ import { formatCurrency } from "@/lib/utils";
 import { AuthGuard } from "@/components/AuthGuard";
 
 function VendorOrdersContent() {
-    const { orders: allOrders, saveOrder, appSettings, getVendorByOwnerId, getVendorById, currentUser } = useAppData();
+    const { orders: allOrders, saveOrder, appSettings, vendors, currentUser } = useAppData();
     const [vendorOrders, setVendorOrders] = useState<Order[]>([]);
     const { toast } = useToast();
     const searchParams = useSearchParams();
 
     // Admin puede acceder con ?vendorId=xxx, vendor usa su propio ID
     const vendorIdFromUrl = searchParams.get('vendorId');
-    const isAdmin = currentUser?.role === 'admin';
 
-    // Buscar vendor: si es admin con vendorId en URL, buscar por ID; si es vendor, buscar por ownerId
-    const vendor = vendorIdFromUrl && isAdmin
-        ? getVendorById(vendorIdFromUrl)
-        : (currentUser?.role === 'vendor' ? getVendorByOwnerId(currentUser.id) : undefined);
+    // 🔒 SEGURIDAD: Cuando el rol es vendor, currentUser YA es el objeto vendor
+    const vendor = vendorIdFromUrl
+        ? vendors.find(v => v.id === vendorIdFromUrl)
+        : (currentUser?.role === 'vendor' ? (currentUser as Vendor) : undefined);
 
     useEffect(() => {
         if (vendor) {

@@ -1,6 +1,8 @@
 
 "use client";
 
+export const dynamic = 'force-dynamic';
+
 import { useState } from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";

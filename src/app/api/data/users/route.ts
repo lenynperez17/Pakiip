@@ -7,13 +7,20 @@ import { auth } from "@/lib/auth";
 import * as db from "@/lib/db-service";
 import { prisma } from "@/lib/prisma";
 
-// GET: Obtener todos los usuarios
+// GET: Obtener todos los usuarios (solo admin)
 export async function GET() {
   try {
+    const session = await auth();
+    if (!session?.user || session.user.role !== "admin") {
+      return NextResponse.json(
+        { success: false, error: "Solo administradores pueden ver usuarios" },
+        { status: 401 }
+      );
+    }
+
     const users = await db.getUsers();
     return NextResponse.json({ success: true, data: users });
   } catch (error: any) {
-    console.error("Error obteniendo usuarios:", error);
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 }
@@ -46,7 +53,6 @@ export async function POST(request: NextRequest) {
     const user = await db.updateUser(data.id, data);
     return NextResponse.json({ success: true, data: user });
   } catch (error: any) {
-    console.error("Error guardando usuario:", error);
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 }
@@ -78,7 +84,6 @@ export async function DELETE(request: NextRequest) {
     await prisma.user.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (error: any) {
-    console.error("Error eliminando usuario:", error);
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 500 }

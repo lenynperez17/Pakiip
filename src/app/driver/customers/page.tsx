@@ -6,12 +6,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useAppData } from "@/hooks/use-app-data";
 import { User, Calendar, Hash } from 'lucide-react';
 import { AuthGuard } from "@/components/AuthGuard";
+import type { DeliveryDriver } from '@/lib/types';
 
 function CustomersPageContent() {
-    const { orders, currentUser, getDriverByUserId } = useAppData();
+    const { orders, currentUser } = useAppData();
 
-    // 🔒 SEGURIDAD: Buscar driver por el userId del usuario logueado
-    const driver = currentUser?.role === 'driver' ? getDriverByUserId(currentUser.id) : undefined;
+    // 🔒 SEGURIDAD: Cuando el rol es driver, currentUser YA es el objeto driver
+    const driver = currentUser?.role === 'driver' ? (currentUser as DeliveryDriver) : undefined;
 
     // ✅ Filtrar SOLO los pedidos del driver logueado
     const driverOrders = driver ? orders.filter(o => o.driverId === driver.id) : [];

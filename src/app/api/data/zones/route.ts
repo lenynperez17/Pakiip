@@ -35,25 +35,32 @@ export async function POST(request: NextRequest) {
     const data = await request.json();
     const { id, ...zoneData } = data;
 
+    const zonePayload = {
+      name: zoneData.name,
+      cityId: zoneData.cityId,
+      path: zoneData.path,
+      shippingFee: zoneData.shippingFee,
+    };
+
     let zone;
     if (id) {
-      zone = await prisma.deliveryZone.update({
-        where: { id },
-        data: {
-          name: zoneData.name,
-          cityId: zoneData.cityId,
-          path: zoneData.path,
-          shippingFee: zoneData.shippingFee,
-        },
-      });
+      // Verificar si el registro existe antes de actualizar
+      const existing = await prisma.deliveryZone.findUnique({ where: { id } });
+
+      if (existing) {
+        zone = await prisma.deliveryZone.update({
+          where: { id },
+          data: zonePayload,
+        });
+      } else {
+        // Si el ID no existe en la DB, crear nuevo registro
+        zone = await prisma.deliveryZone.create({
+          data: zonePayload,
+        });
+      }
     } else {
       zone = await prisma.deliveryZone.create({
-        data: {
-          name: zoneData.name,
-          cityId: zoneData.cityId,
-          path: zoneData.path,
-          shippingFee: zoneData.shippingFee,
-        },
+        data: zonePayload,
       });
     }
 

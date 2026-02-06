@@ -92,6 +92,11 @@ export default function VendorRegistrationPage() {
         throw new Error('La ciudad es obligatoria');
       }
 
+      // Validar que se haya seleccionado una ubicación real
+      if (!coordinates || (coordinates.lat === 0 && coordinates.lng === 0)) {
+        throw new Error('Debes seleccionar la ubicación de tu negocio en el mapa');
+      }
+
       // Crear nuevo vendor
       const newVendor: Vendor = {
         id: sessionUser.id || `v${Date.now()}`,
@@ -108,7 +113,7 @@ export default function VendorRegistrationPage() {
         qrPaymentImageUrl: '', // Vacío inicialmente - se puede subir después
         address: formData.address,
         location: formData.city,
-        coordinates: coordinates || { lat: -12.0464, lng: -77.0428 }, // Usa coordenadas reales o default Lima, Peru
+        coordinates: coordinates, // Coordenadas reales validadas
         products: [],
         productCategories: [],
         isFeatured: false,
@@ -246,17 +251,21 @@ export default function VendorRegistrationPage() {
                 onSelectAddress={(result: GeocodeResult) => {
                   // Guardar coordenadas exactas para mejor ubicación
                   setCoordinates(result.coordinates);
+                  // Auto-rellenar ciudad desde el Geocoder
+                  if (result.locality || result.city) {
+                    handleInputChange('city', result.locality || result.city || '');
+                  }
                 }}
                 required
                 id="address"
               />
 
-              {/* Ciudad */}
+              {/* Ciudad - Auto-rellenada pero editable */}
               <div className="space-y-2">
                 <Label htmlFor="city">Ciudad *</Label>
                 <Input
                   id="city"
-                  placeholder="Ej: Lima"
+                  placeholder="Se auto-rellena al seleccionar dirección"
                   value={formData.city}
                   onChange={(e) => handleInputChange('city', e.target.value)}
                   required
