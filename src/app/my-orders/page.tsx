@@ -12,13 +12,14 @@ import { ArrowRight } from "lucide-react";
 import { useAppData } from '@/hooks/use-app-data';
 import { formatCurrency } from '@/lib/utils';
 import { AuthGuard } from "@/components/AuthGuard";
+import { Skeleton } from "@/components/ui/skeleton";
 
 function MyOrdersPageContent() {
-    const { orders, appSettings: settings, currentUser } = useAppData();
+    const { orders, appSettings: settings, currentUser, isLoading } = useAppData();
 
-    // Filtrar pedidos del usuario actual
+    // Filtrar pedidos del usuario actual por ID
     const userOrders = currentUser
-        ? orders.filter(order => order.customerName === currentUser.name || order.id.includes(currentUser.id))
+        ? orders.filter(order => order.customerId === currentUser.id)
         : [];
 
     const getStatusBadge = (status: Order['status']) => {
@@ -72,6 +73,13 @@ function MyOrdersPageContent() {
                     <CardTitle className="text-lg sm:text-xl md:text-2xl">Historial de Pedidos</CardTitle>
                 </CardHeader>
                 <CardContent className="p-3 sm:p-4 md:p-6">
+                    {isLoading ? (
+                      <div className="grid gap-3 sm:gap-4">
+                        {[...Array(3)].map((_, i) => (
+                          <Skeleton key={i} className="h-24 rounded-lg" />
+                        ))}
+                      </div>
+                    ) : (<>
                     {/* Mobile View */}
                     <div className="grid gap-3 sm:gap-4 md:hidden">
                         {userOrders.length > 0 ? (
@@ -119,6 +127,7 @@ function MyOrdersPageContent() {
                             </TableBody>
                         </Table>
                     </div>
+                    </>)}
                 </CardContent>
             </Card>
         </div>

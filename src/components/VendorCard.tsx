@@ -35,10 +35,7 @@ export function VendorCard({ vendor, priority = false }: VendorCardProps) {
   const isNew = vendor.status === 'Pendiente' || productCount < 5;
 
   const handleClick = () => {
-    const url = `/vendor/${vendor.id}`;
-    console.log('[VendorCard] Navegando a:', url);
-    // Usar navegación directa del navegador
-    window.location.href = url;
+    router.push(`/vendor/${vendor.id}`);
   };
 
   return (

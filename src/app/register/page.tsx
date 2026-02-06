@@ -60,6 +60,7 @@ export default function RegisterPage() {
   const router = useRouter();
   const { appSettings: settings, cities, saveUser } = useAppData();
   const [availableSectors, setAvailableSectors] = useState<CitySector[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const availableVerificationMethods = Object.entries(settings.verificationMethods)
         .filter(([, isEnabled]) => isEnabled)
@@ -88,9 +89,30 @@ export default function RegisterPage() {
   };
 
 
-  function onSubmit(data: RegisterFormValues) {
-    const newUser: User = {
-        id: `u${Date.now()}`,
+  async function onSubmit(data: RegisterFormValues) {
+    setIsSubmitting(true);
+    try {
+      // Registrar en BD con contraseña hasheada via API
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: data.email,
+          password: data.password,
+          name: data.name,
+          phone: data.phone,
+        }),
+      });
+      const result = await response.json();
+
+      if (!result.success) {
+        toast({ title: "Error", description: result.error, variant: "destructive" });
+        return;
+      }
+
+      // Guardar datos adicionales (ciudad, sector, dni, coordenadas)
+      saveUser({
+        id: result.data.id,
         name: data.name,
         email: data.email,
         phone: data.phone,
@@ -98,14 +120,18 @@ export default function RegisterPage() {
         city: data.city,
         sector: data.sector,
         coordinates: data.coordinates,
-    };
-    saveUser(newUser);
+      });
 
-    toast({
+      toast({
         title: "¡Registro Exitoso!",
         description: "Tu cuenta ha sido creada. Ahora puedes iniciar sesión.",
-    });
-    router.push("/login");
+      });
+      router.push("/login");
+    } catch {
+      toast({ title: "Error", description: "No se pudo crear la cuenta. Inténtalo de nuevo.", variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   const handleSendCode = () => {
@@ -327,8 +353,8 @@ export default function RegisterPage() {
                         )}
 
 
-                        <Button type="submit" className="w-full h-10 sm:h-11 text-sm sm:text-base">
-                            Registrarse
+                        <Button type="submit" disabled={isSubmitting} className="w-full h-10 sm:h-11 text-sm sm:text-base">
+                            {isSubmitting ? "Registrando..." : "Registrarse"}
                         </Button>
                     </form>
                 </Form>

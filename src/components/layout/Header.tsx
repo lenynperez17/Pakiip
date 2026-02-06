@@ -421,8 +421,9 @@ export function Header() {
               <Button variant="ghost" size="icon" className="rounded-full h-8 w-8 sm:h-10 sm:w-10 flex-shrink-0">
                 {currentUser ? (
                   <Avatar className="h-7 w-7 sm:h-8 sm:w-8">
-                    {/* @ts-ignore - Handle different image properties */}
-                    {(currentUser.profileImageUrl || currentUser.imageUrl) && <AvatarImage src={currentUser.profileImageUrl || currentUser.imageUrl} alt={currentUser.name} />}
+                    {('profileImageUrl' in currentUser && currentUser.profileImageUrl) || ('imageUrl' in currentUser && currentUser.imageUrl)
+                      ? <AvatarImage src={('profileImageUrl' in currentUser && currentUser.profileImageUrl) || ('imageUrl' in currentUser ? currentUser.imageUrl : '')} alt={currentUser.name} />
+                      : null}
                     <AvatarFallback className="text-xs sm:text-sm">{getInitials(currentUser.name)}</AvatarFallback>
                   </Avatar>
                 ) : (
