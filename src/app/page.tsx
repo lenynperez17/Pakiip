@@ -1,15 +1,14 @@
 
 "use client";
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useAppData } from '@/hooks/use-app-data';
 import { VendorCard } from '@/components/VendorCard';
-import { Button } from '@/components/ui/button';
-import { MapPin, Search, HandHeart, Sparkles, RefreshCw } from "lucide-react";
+import { MapPin, Search, Sparkles } from "lucide-react";
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Carousel, CarouselContent, CarouselItem } from '@/components/ui/carousel';
 import Autoplay from "embla-carousel-autoplay";
 import { ProductCard } from '@/components/ProductCard';
@@ -22,9 +21,7 @@ export default function Home() {
     vendors,
     categories,
     appSettings,
-    getVendorById,
     selectedCity,
-    cities,
     getAllProducts,
     isLoading,
     // Ubicación compartida del contexto
@@ -37,42 +34,42 @@ export default function Home() {
   const [maxDistanceKm] = useState(20); // Radio de búsqueda: 20km
   const [showingAllVendors, setShowingAllVendors] = useState(false);
 
-  // Filtrar vendors por ubicación y búsqueda
+  // Filtrar vendors: radio GPS → ciudad → todas
   useEffect(() => {
-    // Mientras los datos se cargan desde PostgreSQL, no hacer nada
     if (isLoading) return;
 
-    // Vendedores activos
     const activeVendors = vendors.filter(v => v.status === 'Activo');
 
-    // Si tenemos ubicación, filtrar por distancia
+    // PASO 1: Si hay GPS, intentar filtrar por radio de distancia
     if (userLocation) {
-      const locationFiltered = filterVendorsByDistance(
-        activeVendors,
-        userLocation.latitude,
-        userLocation.longitude,
-        maxDistanceKm
+      const nearbyVendors = filterVendorsByDistance(
+        activeVendors, userLocation.latitude, userLocation.longitude, maxDistanceKm
+      ).filter(v =>
+        v.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        v.category.toLowerCase().includes(searchTerm.toLowerCase())
       );
 
-      // Filtrar por búsqueda
-      const searchFiltered = locationFiltered.filter(vendor =>
-        vendor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        vendor.category.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-
-      setFilteredVendors(searchFiltered);
-      setShowingAllVendors(false);
-    } else {
-      // Sin ubicación (cargando GPS o fallida): mostrar TODAS las tiendas
-      // No bloquear la vista esperando al GPS
-      const searchFiltered = activeVendors.filter(vendor =>
-        vendor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        vendor.category.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-      setFilteredVendors(searchFiltered);
-      setShowingAllVendors(true);
+      if (nearbyVendors.length > 0) {
+        setFilteredVendors(nearbyVendors);
+        setShowingAllVendors(false);
+        return;
+      }
+      // Sin tiendas en el radio → caer al fallback de ciudad
     }
-  }, [vendors, searchTerm, userLocation, maxDistanceKm, isLoading]);
+
+    // PASO 2: Fallback — filtrar por ciudad seleccionada
+    const cityFiltered = selectedCity
+      ? activeVendors.filter(v => v.location === selectedCity || v.city === selectedCity)
+      : activeVendors;
+
+    const searchFiltered = cityFiltered.filter(v =>
+      v.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      v.category.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    setFilteredVendors(searchFiltered);
+    setShowingAllVendors(true);
+  }, [vendors, searchTerm, userLocation, maxDistanceKm, isLoading, selectedCity]);
 
 
   const featuredVendors = filteredVendors.filter(v => v.isFeatured);
@@ -212,28 +209,31 @@ export default function Home() {
                 <div className="flex flex-col md:flex-row items-center justify-between mb-4 sm:mb-6 gap-3 sm:gap-4">
                     <h2 className="text-base sm:text-lg font-bold font-headline">
                         {searchTerm ? `Resultados para "${searchTerm}"` :
-                         showingAllVendors ? "Todas las Tiendas Disponibles" :
-                         "Tiendas Cercanas"}
+                         !showingAllVendors ? "Tiendas Cercanas" :
+                         selectedCity ? `Tiendas en ${selectedCity}` :
+                         "Todas las Tiendas"}
                     </h2>
                     {!searchTerm && filteredVendors.length > 0 && (
                       <p className="text-xs sm:text-sm text-muted-foreground">
                         {filteredVendors.length} {filteredVendors.length === 1 ? 'tienda' : 'tiendas'}
-                        {userLocation && !showingAllVendors && ` a menos de ${maxDistanceKm}km`}
+                        {!showingAllVendors && ` a menos de ${maxDistanceKm}km`}
                       </p>
                     )}
                 </div>
 
-                {/* Mensaje sutil cuando no hay ubicación - no intrusivo */}
-                {showingAllVendors && !isLoadingLocation && (
+                {/* Mensaje sutil con info de filtrado */}
+                {showingAllVendors && !isLoadingLocation && selectedCity && (
                   <p className="text-xs text-muted-foreground mb-3 flex items-center gap-1.5">
                     <MapPin className="h-3 w-3" />
-                    Mostrando todas las tiendas.
-                    <button
-                      onClick={() => refreshLocation()}
-                      className="text-primary hover:underline"
-                    >
-                      Activar GPS
-                    </button>
+                    Mostrando tiendas en {selectedCity}.
+                    {!userLocation && (
+                      <button
+                        onClick={() => refreshLocation()}
+                        className="text-primary hover:underline"
+                      >
+                        Activar GPS para ver las más cercanas
+                      </button>
+                    )}
                   </p>
                 )}
 
@@ -256,30 +256,14 @@ export default function Home() {
                     <p className="text-sm sm:text-base text-muted-foreground">
                       No se encontraron tiendas que coincidan con tu búsqueda.
                     </p>
-                  ) : userLocation ? (
+                  ) : (
                     <div className="space-y-2">
                       <p className="text-base sm:text-lg font-semibold">
-                        No hay tiendas cerca de tu ubicación
+                        No hay tiendas en {selectedCity || "tu zona"}
                       </p>
                       <p className="text-sm sm:text-base text-muted-foreground">
-                        Estamos trabajando para abrir más tiendas en tu zona
+                        Estamos trabajando para abrir más tiendas
                       </p>
-                      <p className="text-xs sm:text-sm text-muted-foreground mt-4">
-                        Radio de búsqueda: {maxDistanceKm} km
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <p className="text-base sm:text-lg font-semibold">
-                        No hay tiendas disponibles
-                      </p>
-                      <Button
-                        onClick={() => refreshLocation()}
-                        className="gap-2"
-                      >
-                        <RefreshCw className="h-4 w-4" />
-                        Obtener mi ubicación
-                      </Button>
                     </div>
                   )}
                 </div>
