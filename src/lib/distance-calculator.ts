@@ -53,22 +53,23 @@ function toRadians(degrees: number): number {
  * @param maxDistanceKm Distancia máxima en kilómetros (default: 20km)
  * @returns Array de vendors cercanos con su distancia calculada
  */
-export function filterVendorsByDistance<T extends { coordinates: { lat: number; lng: number } }>(
+export function filterVendorsByDistance<T extends { coordinates?: { lat: number; lng: number } | null }>(
   vendors: T[],
   userLat: number,
   userLng: number,
   maxDistanceKm: number = 20
 ): Array<T & { distance: number }> {
   return vendors
+    .filter(vendor => vendor.coordinates?.lat != null && vendor.coordinates?.lng != null)
     .map(vendor => {
       const distance = calculateDistance(
         userLat,
         userLng,
-        vendor.coordinates.lat,
-        vendor.coordinates.lng
+        vendor.coordinates!.lat,
+        vendor.coordinates!.lng
       );
       return { ...vendor, distance };
     })
     .filter(vendor => vendor.distance <= maxDistanceKm)
-    .sort((a, b) => a.distance - b.distance); // Ordenar por distancia (más cercano primero)
+    .sort((a, b) => a.distance - b.distance);
 }

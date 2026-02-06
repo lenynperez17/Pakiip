@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { useAppData } from '@/hooks/use-app-data';
 import { VendorCard } from '@/components/VendorCard';
 import { Button } from '@/components/ui/button';
-import { MapPin, Search, HandHeart, Sparkles, Loader2, RefreshCw } from "lucide-react";
+import { MapPin, Search, HandHeart, Sparkles, RefreshCw } from "lucide-react";
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Carousel, CarouselContent, CarouselItem } from '@/components/ui/carousel';
@@ -26,10 +26,10 @@ export default function Home() {
     selectedCity,
     cities,
     getAllProducts,
+    isLoading,
     // Ubicación compartida del contexto
     userLocation,
     isLoadingLocation,
-    locationError,
     refreshLocation
   } = useAppData();
   const [searchTerm, setSearchTerm] = useState('');
@@ -39,6 +39,9 @@ export default function Home() {
 
   // Filtrar vendors por ubicación y búsqueda
   useEffect(() => {
+    // Mientras los datos se cargan desde PostgreSQL, no hacer nada
+    if (isLoading) return;
+
     // Vendedores activos
     const activeVendors = vendors.filter(v => v.status === 'Activo');
 
@@ -59,20 +62,17 @@ export default function Home() {
 
       setFilteredVendors(searchFiltered);
       setShowingAllVendors(false);
-    } else if (!isLoadingLocation) {
-      // Sin ubicación y ya terminó de cargar: mostrar todas las tiendas como fallback
+    } else {
+      // Sin ubicación (cargando GPS o fallida): mostrar TODAS las tiendas
+      // No bloquear la vista esperando al GPS
       const searchFiltered = activeVendors.filter(vendor =>
         vendor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         vendor.category.toLowerCase().includes(searchTerm.toLowerCase())
       );
       setFilteredVendors(searchFiltered);
       setShowingAllVendors(true);
-    } else {
-      // Cargando ubicación: mostrar array vacío temporalmente
-      setFilteredVendors([]);
-      setShowingAllVendors(false);
     }
-  }, [vendors, searchTerm, userLocation, isLoadingLocation, maxDistanceKm]);
+  }, [vendors, searchTerm, userLocation, maxDistanceKm, isLoading]);
 
 
   const featuredVendors = filteredVendors.filter(v => v.isFeatured);
@@ -237,15 +237,11 @@ export default function Home() {
                   </p>
                 )}
 
-                {isLoadingLocation ? (
-                <div className="flex flex-col items-center justify-center py-12 sm:py-16 space-y-4">
-                  <Loader2 className="h-8 w-8 sm:h-10 sm:w-10 animate-spin text-primary" />
-                  <p className="text-sm sm:text-base text-muted-foreground">
-                    Obteniendo tu ubicación...
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Esto puede tomar unos segundos
-                  </p>
+                {isLoading ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3 md:gap-4 lg:gap-5">
+                  {[...Array(6)].map((_, i) => (
+                    <Skeleton key={i} className="h-48 sm:h-52 rounded-lg" />
+                  ))}
                 </div>
                 ) : filteredVendors.length > 0 ? (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-3 md:gap-4 lg:gap-5">
