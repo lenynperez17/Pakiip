@@ -61,16 +61,16 @@ export interface LocationError {
   canRetry: boolean;
 }
 
-// Configuración de ubicación - valores relajados para mejor compatibilidad
+// Configuración de ubicación - timeouts reducidos para carga rápida
 const LOCATION_CONFIG = {
-  GPS_TIMEOUT: 30000,            // 30 segundos - GPS en interiores es lento
-  GPS_RETRY_TIMEOUT: 45000,      // 45 segundos para reintentos
+  GPS_TIMEOUT: 5000,             // 5 segundos - falla rápido si no hay GPS
+  GPS_RETRY_TIMEOUT: 10000,      // 10 segundos para reintentos
   EXCELLENT_ACCURACY: 100,       // < 100m = excelente
   GOOD_ACCURACY: 500,            // < 500m = bueno
   MEDIUM_ACCURACY: 1000,         // < 1km = medio (aceptable)
   MAX_ACCEPTABLE_ACCURACY: 3000, // 3km máximo aceptable (GPS en interiores)
-  MAX_RETRIES: 2,                // 2 reintentos (menos espera)
-  RETRY_DELAY_MS: 1000,          // 1 segundo entre reintentos
+  MAX_RETRIES: 1,                // 1 reintento máximo
+  RETRY_DELAY_MS: 500,           // 0.5 segundos entre reintentos
 };
 
 function getAccuracyLevel(accuracy: number): LocationAccuracy {
@@ -134,6 +134,7 @@ const emptyAppData: AppData = {
 
 // --- Context Definition ---
 interface AppDataContextValue extends Omit<AppData, 'currentUser'> {
+  isLoading: boolean;
   currentUser: LoggedInUser | null;
   availableRoles: string[];
   selectedCity: string | null;
@@ -1288,6 +1289,7 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
 
   const value: AppDataContextValue = {
     ...data,
+    isLoading: !isInitialized,
     currentUser,
     availableRoles,
     selectedCity,
@@ -1345,11 +1347,7 @@ export const AppDataProvider = ({ children }: { children: ReactNode }) => {
     deleteFavor,
   };
 
-  // Render children solo despues de inicializacion
-  if (!isInitialized) {
-    return null;
-  }
-
+  // Siempre renderizar - los componentes usan isLoading para mostrar estados de carga
   return (
     <AppDataContext.Provider value={value}>
       {children}

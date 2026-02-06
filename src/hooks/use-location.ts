@@ -45,8 +45,8 @@ export interface LocationState {
 // ==================== CONFIGURACIÓN ====================
 
 const CONFIG = {
-  // Tiempos - 60 segundos para dar tiempo al GPS
-  GPS_TIMEOUT: 60000, // 60 segundos para GPS
+  // Tiempos reducidos para carga rápida
+  GPS_TIMEOUT: 8000, // 8 segundos máximo
 
   // Precisión - solo para clasificar, NO para rechazar
   EXCELLENT_ACCURACY: 50, // < 50m = excelente
